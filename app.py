@@ -26,16 +26,58 @@ EXAMPLE_QUESTIONS = (
     ("🐧", "คำสั่งดู IP บน Ubuntu คืออะไร?"),
 )
 
+# Theme Variables
 # Custom CSS
 APP_STYLES = """
 <style>
+    :root {
+        /* These values follow Streamlit's selected theme, including a theme
+           chosen from Streamlit's menu that differs from the OS theme. */
+        --netlab-app-bg: var(--background-color);
+        --netlab-sidebar-bg: var(--secondary-background-color);
+        --netlab-surface-bg: var(--background-color);
+        --netlab-text-primary: var(--text-color);
+        --netlab-text-secondary: color-mix(
+            in srgb, var(--text-color) 66%, transparent
+        );
+        --netlab-border-color: color-mix(
+            in srgb, var(--text-color) 15%, transparent
+        );
+        --netlab-border-strong: color-mix(
+            in srgb, var(--text-color) 23%, transparent
+        );
+        --netlab-user-bubble: color-mix(
+            in srgb, var(--text-color) 9%, var(--background-color)
+        );
+        --netlab-code-bg: var(--secondary-background-color);
+        --netlab-inline-code-bg: color-mix(
+            in srgb, var(--text-color) 7%, var(--background-color)
+        );
+        --netlab-input-bg: color-mix(
+            in srgb, var(--background-color) 94%, var(--secondary-background-color)
+        );
+        --netlab-hover-bg: color-mix(
+            in srgb, var(--text-color) 7%, var(--background-color)
+        );
+        --netlab-placeholder: color-mix(
+            in srgb, var(--text-color) 52%, transparent
+        );
+        --netlab-status-green: #22c55e;
+        --netlab-warning: #d99a1b;
+    }
+
+    /* Custom CSS */
     .netlab-callout {
         padding: .75rem .9rem;
         margin: .2rem 0 .9rem;
-        border: 1px solid #fde3a7;
+        border: 1px solid color-mix(
+            in srgb, var(--netlab-warning) 45%, var(--netlab-border-color)
+        );
         border-radius: 10px;
-        background: #fffbeb;
-        color: #73510d;
+        background: color-mix(
+            in srgb, var(--netlab-warning) 11%, var(--netlab-surface-bg)
+        );
+        color: var(--netlab-text-primary);
         font-size: .86rem;
     }
     /* Chat-focused layout */
@@ -43,49 +85,64 @@ APP_STYLES = """
         font-family: Inter, ui-sans-serif, system-ui, -apple-system,
             BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    [data-testid="stAppViewContainer"] { background: #f7f8fa; }
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background: var(--netlab-app-bg);
+        color: var(--netlab-text-primary);
+    }
     [data-testid="stMainBlockContainer"] {
         max-width: 1000px;
         padding-top: 1.35rem;
         padding-bottom: 7rem;
     }
     [data-testid="stSidebar"] {
-        background: #f3f4f6;
-        border-right: 1px solid #e5e7eb;
+        background: var(--netlab-sidebar-bg);
+        color: var(--netlab-text-primary);
+        border-right: 1px solid var(--netlab-border-color);
+    }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p {
+        color: var(--netlab-text-primary);
+    }
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: var(--netlab-text-secondary);
     }
     .netlab-header {
         margin: 0 0 1.15rem;
         padding: 0 .2rem .85rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--netlab-border-color);
     }
     .netlab-header h1,
     .netlab-welcome h1 {
         margin: 0;
-        color: #1f2937;
+        color: var(--netlab-text-primary);
         font-size: 1.65rem;
         font-weight: 700;
         line-height: 1.25;
     }
     .netlab-header p {
         margin: .25rem 0 0;
-        color: #6b7280;
+        color: var(--netlab-text-secondary);
         font-size: .84rem;
     }
     .netlab-welcome {
         max-width: 720px;
         margin: 8vh auto 1.4rem;
         padding: 0;
-        color: #1f2937;
+        color: var(--netlab-text-primary);
         text-align: center;
     }
     .netlab-welcome p {
         margin: .55rem 0 0;
-        color: #6b7280;
+        color: var(--netlab-text-secondary);
         font-size: 1rem;
     }
     .netlab-suggested {
         margin: .9rem 0 .55rem;
-        color: #6b7280;
+        color: var(--netlab-text-secondary);
         font-size: .76rem;
         font-weight: 600;
         letter-spacing: .02em;
@@ -93,25 +150,29 @@ APP_STYLES = """
     }
     .netlab-sources {
         margin-top: .6rem;
-        color: #6b7280;
+        color: var(--netlab-text-secondary);
         font-size: .78rem;
         line-height: 1.5;
     }
-    .netlab-sources strong { color: #4b5563; font-weight: 600; }
+    .netlab-sources strong {
+        color: var(--netlab-text-primary);
+        font-weight: 600;
+    }
     .sidebar-status {
         margin: .2rem 0 .8rem;
-        color: #4b5563;
+        color: var(--netlab-text-primary);
         font-size: .76rem;
         line-height: 1.75;
     }
-    .sidebar-status .ok { color: #22c55e; }
-    .sidebar-status .warn { color: #d99a1b; }
+    .sidebar-status .ok { color: var(--netlab-status-green); }
+    .sidebar-status .warn { color: var(--netlab-warning); }
     [data-testid="stChatMessage"] {
         margin-bottom: .4rem;
         padding: .8rem .2rem;
         border: 0;
         border-radius: 0;
         background: transparent;
+        color: var(--netlab-text-primary);
         box-shadow: none;
     }
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
@@ -120,55 +181,108 @@ APP_STYLES = """
         margin-left: auto;
         padding: .62rem .9rem;
         border-radius: 18px;
-        background: #ececec;
+        background: var(--netlab-user-bubble);
+        color: var(--netlab-text-primary);
     }
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"])
     [data-testid="stChatMessageAvatarUser"] { display: none; }
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"])
     [data-testid="stMarkdownContainer"] {
-        color: #1f2937;
+        color: var(--netlab-text-primary);
         font-size: .97rem;
         line-height: 1.72;
     }
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] :is(
+        h1, h2, h3, h4, h5, h6, p, li, strong, em
+    ) {
+        color: var(--netlab-text-primary);
+    }
     [data-testid="stChatMessage"] pre {
         padding: .8rem !important;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--netlab-border-color);
         border-radius: 9px !important;
-        background: #f3f4f6 !important;
+        background: var(--netlab-code-bg) !important;
+        color: var(--netlab-text-primary) !important;
+    }
+    [data-testid="stChatMessage"] pre code,
+    [data-testid="stCodeBlock"] pre,
+    [data-testid="stCodeBlock"] code {
+        background: var(--netlab-code-bg) !important;
+        color: var(--netlab-text-primary) !important;
+    }
+    [data-testid="stChatMessage"] :not(pre) > code,
+    [data-testid="stMarkdownContainer"] :not(pre) > code {
+        border-radius: 5px;
+        background: var(--netlab-inline-code-bg);
+        color: var(--netlab-text-primary);
     }
     [data-testid="stExpander"] {
         margin-top: .35rem;
-        border-color: #e5e7eb;
+        border-color: var(--netlab-border-color);
         background: transparent;
+        color: var(--netlab-text-primary);
         font-size: .82rem;
+    }
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] {
+        color: var(--netlab-text-primary);
+    }
+    [data-testid="stCaptionContainer"] {
+        color: var(--netlab-text-secondary);
     }
     [data-testid="stChatInput"] {
         min-height: 56px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--netlab-border-strong);
         border-radius: 24px;
-        background: #ffffff;
-        box-shadow: 0 3px 14px rgba(31, 41, 55, .06);
+        background: var(--netlab-input-bg);
+        color: var(--netlab-text-primary);
+        box-shadow: 0 3px 14px color-mix(
+            in srgb, var(--netlab-text-primary) 6%, transparent
+        );
+    }
+    [data-testid="stChatInput"] textarea {
+        background: transparent;
+        color: var(--netlab-text-primary);
+        caret-color: var(--netlab-text-primary);
+    }
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: var(--netlab-placeholder);
+        opacity: 1;
+    }
+    [data-testid="stChatInput"] button {
+        color: var(--netlab-text-primary);
     }
     [data-testid="stBottom"] {
-        background: #f7f8fa;
+        background: var(--netlab-app-bg);
     }
     .stButton > button {
-        border-color: #e5e7eb;
+        border-color: var(--netlab-border-color);
         border-radius: 12px;
-        background: #ffffff;
-        color: #1f2937;
+        background: var(--netlab-surface-bg);
+        color: var(--netlab-text-primary);
         font-size: .88rem;
         font-weight: 500;
         box-shadow: none;
     }
     .stButton > button:hover {
-        border-color: #c7cdd5;
-        background: #f9fafb;
-        color: #1f2937;
+        border-color: var(--netlab-border-strong);
+        background: var(--netlab-hover-bg);
+        color: var(--netlab-text-primary);
+    }
+    .stButton > button:focus-visible {
+        border-color: var(--primary-color);
+        color: var(--netlab-text-primary);
+        box-shadow: 0 0 0 2px color-mix(
+            in srgb, var(--primary-color) 28%, transparent
+        );
+    }
+    [data-testid="stSpinner"] {
+        color: var(--netlab-text-primary);
     }
     .netlab-footer {
         margin-top: 1.5rem;
-        color: #6b7280;
+        color: var(--netlab-text-secondary);
         font-size: .72rem;
     }
     @media (max-width: 700px) {
@@ -438,7 +552,8 @@ def render_starter_questions():
         )
 
 
-# Sources and Chat Messages
+# Sources
+# Chat History
 def render_message(message):
     avatar = None if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar=avatar):
