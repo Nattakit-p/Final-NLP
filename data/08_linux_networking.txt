@@ -1,0 +1,207 @@
+Linux Networking บน Ubuntu Server
+
+Ubuntu Server ใช้คำสั่ง ip เป็นเครื่องมือหลักในการตรวจเครือข่าย คำสั่ง ip address หรือ ip a แสดง Interface และ IP Address คำสั่ง ip link แสดงสถานะ Link และ MAC Address คำสั่ง ip route แสดง Routing Table บรรทัดที่ขึ้นต้นด้วย default ระบุ Default Gateway ตัวอย่าง default via 192.168.10.1 dev enp0s3 หมายถึงส่งปลายทางที่ไม่มี Route เฉพาะไปยัง Gateway ผ่าน Interface enp0s3
+
+ชื่อ Interface สมัยใหม่อาจเป็น enp0s3, ens160 หรือ eno1 แทน eth0 จึงควรตรวจชื่อจริงก่อนเขียน Configuration Ubuntu Server ใช้ Netplan เป็นชั้นกำหนดเครือข่ายด้วย YAML ไฟล์อยู่ใน /etc/netplan/ และส่งค่าต่อให้ Renderer เช่น systemd-networkd หรือ NetworkManager YAML ไวต่อการเยื้อง ต้องใช้ Space และรักษาโครงสร้างให้ถูกต้อง
+
+ตัวอย่างแนวคิดการตั้ง Static Address คือระบุ addresses เป็น 192.168.10.20/24 ระบุ Default Route ไป 192.168.10.1 และระบุ nameservers หลังแก้ไฟล์ใช้ sudo netplan try เพื่อทดลองพร้อมโอกาสย้อนกลับหากการเชื่อมต่อขาด เมื่อตรวจแล้วใช้ sudo netplan apply การแก้ Server ระยะไกลควรใช้ netplan try ก่อนเสมอเพื่อลดโอกาสล็อกตนเองออกจากเครื่อง
+
+การตรวจ DNS ใช้ resolvectl status ดู DNS ต่อ Interface ใช้ dig example.com หรือ nslookup example.com ทดสอบการค้นชื่อ ไฟล์ /etc/hosts ใช้กำหนดชื่อภายในเครื่องและเหมาะกับรายการเล็ก ไม่ใช่ตัวแทน DNS ส่วน /etc/resolv.conf ในหลายระบบถูกสร้างและบริหารโดย Service จึงไม่ควรแก้ถาวรโดยไม่เข้าใจตัวจัดการ
+
+คำสั่ง ping -c 4 192.168.10.1 ทดสอบ ICMP สี่ครั้ง traceroute แสดงเส้นทาง หากยังไม่ติดตั้งอาจใช้ tracepath คำสั่ง ss -tulpen แสดง TCP/UDP Socket และ Process ที่กำลัง Listen คำสั่ง curl -I http://server ทดสอบ HTTP Header และ nc -vz host port ใช้ตรวจ TCP Port เมื่อมีแพ็กเกจ netcat
+
+IP Forwarding ใช้ให้ Linux ส่ง Packet ระหว่าง Interface ทำให้เครื่องทำหน้าที่ Router หรือ Gateway ตรวจค่า IPv4 ด้วย sysctl net.ipv4.ip_forward ค่า 1 คือเปิด การเปิดชั่วคราวใช้ sudo sysctl -w net.ipv4.ip_forward=1 ส่วนการตั้งถาวรต้องกำหนดในไฟล์ sysctl แล้วโหลดค่า การเปิด Forwarding อย่างเดียวไม่สร้าง Route, NAT หรือ Firewall Rule จึงต้องตั้งองค์ประกอบเหล่านั้นแยกกัน
+
+การแก้ปัญหาใช้ลำดับ: 1) ip link ตรวจ Interface UP 2) ip a ตรวจ Address และ Prefix 3) ip route ตรวจ Default Route 4) ping Gateway 5) ping IP ภายนอก 6) dig ตรวจ DNS 7) ss ตรวจ Service 8) ตรวจ UFW และ Log คำสั่ง journalctl -u systemd-networkd หรือ Journal ของ Service ที่ใช้ช่วยหาเหตุการณ์
+
+การเปลี่ยนเครือข่ายผ่าน SSH มีความเสี่ยง ควรมี Console สำรอง สำรองไฟล์ Configuration ตรวจ Syntax และกำหนดเวลาย้อนกลับ การใช้ sudo ต้องจำกัดผู้มีสิทธิ์ อัปเดตแพ็กเกจสม่ำเสมอ และเปิด Service เฉพาะที่ต้องใช้งาน
+
+องค์ประกอบของ Linux Networking
+
+การตั้งค่าเครือข่ายบน Linux เกี่ยวข้องกับ Interface, IP Address, Prefix, Routing Table, DNS Resolver และ Firewall Interface อาจเป็นการ์ดจริง เช่น `enp0s3` หรือ `ens160` และอาจเป็น Interface เสมือน เช่น Bridge, VLAN หรือ Loopback ชื่อ `lo` ผู้ดูแลควรระบุ Interface จากชื่อจริงแทนการสมมติว่าเป็น `eth0`
+
+คำสั่งตรวจ Interface และ Address
+
+ip link
+
+ใช้แสดง Interface, MAC Address, MTU และสถานะ `UP` หรือ `DOWN` หาก Interface เป็น `DOWN` จะยังสื่อสารไม่ได้แม้ไฟล์ตั้งค่ามี IP ถูกต้อง
+
+ip address
+
+ใช้แสดง IPv4, IPv6 และ Prefix ของทุก Interface รูปแบบย่อคือ:
+
+ip a
+
+ดูเฉพาะ Interface ตัวอย่าง `ens160`:
+
+ip address show ens160
+
+เปิด Interface ชั่วคราว:
+
+sudo ip link set ens160 up
+
+ค่าที่เปลี่ยนด้วยคำสั่ง `ip` โดยตรงมักไม่คงอยู่หลัง Restart การตั้งค่าถาวรควรทำผ่าน Netplan หรือระบบจัดการ Network ของ Distribution
+
+Netplan คืออะไร
+
+Netplan คือระบบกำหนดค่าเครือข่ายของ Ubuntu ผ่านไฟล์ YAML ใน `/etc/netplan/` แล้วสร้าง Configuration ให้ Renderer เช่น `systemd-networkd` หรือ `NetworkManager` YAML ใช้ Space ในการเยื้องและห้ามใช้ Tab ก่อนแก้ควรสำรองไฟล์เดิมและตรวจชื่อ Interface ให้ถูกต้อง
+
+ตัวอย่าง Static IP ด้วย Netplan
+
+network:
+  version: 2
+  ethernets:
+    ens160:
+      dhcp4: false
+      addresses:
+        - 192.168.10.20/24
+      routes:
+        - to: default
+          via: 192.168.10.1
+      nameservers:
+        addresses:
+          - 192.168.10.10
+          - 1.1.1.1
+
+ตัวอย่างนี้กำหนด Address 192.168.10.20/24, Default Gateway 192.168.10.1 และ DNS สองเครื่อง ควรปรับ Interface และ Address ให้ตรงกับ Lab จริง
+
+ขั้นตอนใช้ Netplan อย่างปลอดภัย
+
+1. ตรวจชื่อ Interface ด้วย `ip link`
+2. สำรองไฟล์เดิมใน `/etc/netplan/`
+3. แก้ YAML และตรวจการเยื้อง
+4. ใช้ `sudo netplan generate` เพื่อตรวจรูปแบบ
+5. ใช้ `sudo netplan try` เมื่อแก้ผ่าน SSH ระบบจะย้อนค่าได้หากไม่ยืนยัน
+6. เมื่อทดสอบแล้วใช้ `sudo netplan apply`
+7. ตรวจซ้ำด้วย `ip a`, `ip route` และ `resolvectl status`
+
+คำสั่ง Routing และ Default Gateway
+
+ip route
+
+ใช้แสดง Routing Table ทั้งหมด บรรทัด `default via 192.168.10.1 dev ens160` คือ Default Route สำหรับปลายทางที่ไม่มี Route เฉพาะ
+
+ip route get 8.8.8.8
+
+ใช้ถาม Kernel ว่าจะส่ง Packet ไปยังปลายทางผ่าน Gateway และ Interface ใด เหมาะกับเครื่องที่มีหลาย Interface
+
+เพิ่ม Static Route ชั่วคราว:
+
+sudo ip route add 10.20.0.0/16 via 192.168.10.254
+
+ลบ Route ดังกล่าว:
+
+sudo ip route del 10.20.0.0/16 via 192.168.10.254
+
+Route ที่เพิ่มด้วย `ip route` โดยตรงจะหายหลัง Restart การตั้งถาวรต้องเพิ่มใน Netplan หรือเครื่องมือ Network ที่ระบบใช้
+
+การตรวจ DNS บน Ubuntu
+
+resolvectl status
+
+แสดง DNS Server, Search Domain และสถานะ DNS ต่อ Interface
+
+dig example.com
+
+แสดง DNS Answer, Server ที่ตอบ และเวลาที่ใช้ สามารถระบุ DNS Server ด้วย `dig @192.168.10.10 example.com`
+
+nslookup example.com
+
+ใช้ตรวจการแปลงชื่อแบบพื้นฐาน หาก Ping IP ได้แต่ `dig` หรือ `nslookup` ชื่อไม่ได้ ควรตรวจ DNS Configuration และ Firewall Port 53
+
+คำสั่งทดสอบการเชื่อมต่อ
+
+ping -c 4 192.168.10.1
+
+ส่ง ICMP Echo สี่ครั้งไปยัง Gateway เหมาะกับการทดสอบ Latency และ Packet Loss เบื้องต้น
+
+traceroute 8.8.8.8
+
+แสดง Hop ระหว่างเครื่องกับปลายทาง หากยังไม่ได้ติดตั้ง `traceroute` สามารถใช้:
+
+tracepath 8.8.8.8
+
+ทดสอบ HTTP Header โดยไม่ดาวน์โหลดหน้าเว็บทั้งหมด:
+
+curl -I https://example.com
+
+ทดสอบว่า TCP Port เปิดหรือเข้าถึงได้:
+
+nc -vz 192.168.10.50 443
+
+คำสั่งตรวจ Service และ Port
+
+ss -tulpen
+
+แสดง TCP/UDP Socket ที่ Listen พร้อม Port, Process และข้อมูลผู้ใช้ ตัวเลือก `-t` คือ TCP, `-u` คือ UDP, `-l` คือ Listening, `-p` คือ Process, `-e` คือรายละเอียดเพิ่ม และ `-n` คือแสดงเลข Port โดยไม่แปลงชื่อ
+
+ตัวอย่าง หาก `curl` เข้า Web Server ไม่ได้ ให้ใช้ `ss -tulpen` บน Server ตรวจว่ามี Process Listen ที่ Port 80/443 หรือไม่ หากไม่มีต้องตรวจ Service ก่อน Firewall
+
+IP Forwarding ใช้ทำอะไร
+
+IP Forwarding ทำให้ Linux รับ Packet จาก Interface หนึ่งแล้วส่งออกอีก Interface จึงจำเป็นเมื่อทำ Router หรือ Gateway ตรวจค่าปัจจุบันด้วย:
+
+sysctl net.ipv4.ip_forward
+
+เปิดชั่วคราวด้วย:
+
+sudo sysctl -w net.ipv4.ip_forward=1
+
+การเปิด Forwarding ไม่ได้สร้าง NAT หรือ Firewall Rule ให้อัตโนมัติ ต้องกำหนด Route และ Policy แยกต่างหาก
+
+การดู Log เครือข่าย
+
+journalctl -u systemd-networkd
+
+ใช้ดู Log ของ `systemd-networkd` หาก Netplan ใช้ Renderer นี้
+
+journalctl -u NetworkManager
+
+ใช้ดู Log เมื่อระบบบริหารเครือข่ายด้วย NetworkManager เพิ่ม `-b` เพื่อดูเฉพาะ Boot ปัจจุบัน และ `-f` เพื่อติดตาม Log แบบต่อเนื่อง
+
+Troubleshooting Linux Networking แบบเป็นขั้นตอน
+
+1. ใช้ `ip link` ตรวจว่า Interface มีอยู่และเป็น UP
+2. ใช้ `ip a` ตรวจ Address, Prefix และ Address ซ้ำ
+3. ใช้ `ip route` ตรวจ Connected Route และ Default Route
+4. Ping Address ของตนเอง แล้ว Ping Default Gateway
+5. Ping Public IP เพื่อแยกปัญหา Routing ออกจาก DNS
+6. ใช้ `resolvectl status` และ `dig` ตรวจ DNS
+7. ใช้ `ss -tulpen` ตรวจว่า Service Listen ที่ Port ถูกต้อง
+8. ใช้ `nc -vz` หรือ `curl -I` ทดสอบบริการจาก Client
+9. ตรวจ UFW และ Firewall ของเครือข่าย
+10. ตรวจ Journal และการเปลี่ยนแปลงล่าสุด
+
+ปัญหาที่พบบ่อย
+
+- YAML เยื้องผิด ทำให้ `netplan generate` แจ้ง Error
+- ใช้ชื่อ Interface ผิด ทำให้ค่าไม่ถูกนำไปใช้
+- Default Gateway อยู่นอก Subnet และไม่มี Route ไปถึง
+- แก้ `/etc/resolv.conf` โดยตรงแล้วค่าถูก Service เขียนทับ
+- Service Listen เฉพาะ `127.0.0.1` ทำให้เครื่องอื่นเข้าไม่ได้
+- เปิด IP Forwarding แล้วแต่ยังไม่มี Route, NAT หรือ Firewall Allow
+- เปลี่ยน IP ผ่าน SSH โดยไม่มี Console สำรอง ทำให้เชื่อมต่อกลับไม่ได้
+
+ข้อควรระวัง
+
+การเปลี่ยน Network บน Remote Server ควรใช้ `netplan try`, มี Console สำรอง และทำใน Maintenance Window อย่าเปิด Port หรือปิด Firewall กว้างเพื่อแก้ปัญหาชั่วคราวโดยไม่คืนค่า และอย่าใส่รหัสผ่านหรือ API Key ลงในไฟล์ Network Script ที่ผู้ใช้อื่นอ่านได้
+
+สรุปคำสั่งสำคัญ
+
+- `ip link` ตรวจ Interface และ Link State
+- `ip a` ดู IPv4/IPv6 และ Prefix
+- `ip route` ดู Routing Table และ Default Route
+- `netplan generate` ตรวจ Configuration
+- `netplan try` ทดลองค่าพร้อมระบบย้อนกลับ
+- `netplan apply` นำค่ามาใช้
+- `resolvectl status` ดู DNS Configuration
+- `dig` และ `nslookup` ทดสอบ Name Resolution
+- `ping -c 4` ทดสอบ ICMP และ Packet Loss
+- `traceroute` หรือ `tracepath` ตรวจเส้นทาง
+- `ss -tulpen` ตรวจ Port และ Process ที่ Listen
+- `curl -I` ทดสอบ HTTP/HTTPS Header
+- `nc -vz host port` ทดสอบ TCP Port
+- `sysctl net.ipv4.ip_forward` ตรวจ IP Forwarding
+- `journalctl` ตรวจ Log ของ Service
+
+แหล่งศึกษา: Ubuntu Server documentation, Netplan documentation และ Linux iproute2 documentation

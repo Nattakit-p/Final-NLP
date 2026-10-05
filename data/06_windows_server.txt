@@ -1,0 +1,111 @@
+พื้นฐานการดูแล Windows Server
+
+Windows Server เป็นระบบปฏิบัติการสำหรับให้บริการเครือข่ายและบริหารทรัพยากรส่วนกลาง ความสามารถถูกเพิ่มผ่าน Roles และ Features ตัวอย่าง Roles ได้แก่ Active Directory Domain Services (AD DS), DNS Server, DHCP Server, File and Storage Services, Web Server (IIS) และ Hyper-V ผู้ดูแลควรติดตั้งเฉพาะส่วนที่จำเป็นเพื่อลดพื้นที่โจมตีและภาระการอัปเดต
+
+Server Manager เป็นเครื่องมือกราฟิกสำหรับเพิ่ม Roles ตรวจ Event และบริหารหลาย Server ส่วน PowerShell เหมาะกับงานซ้ำและ Automation คำสั่ง Get-WindowsFeature แสดง Roles และ Features คำสั่ง Install-WindowsFeature ติดตั้งส่วนประกอบ โดยควรอ่านผลลัพธ์และตรวจว่าต้อง Restart หรือไม่ Windows Admin Center เป็นอีกเครื่องมือสำหรับบริหารผ่านเว็บในสภาพแวดล้อมที่รองรับ
+
+AD DS จัดเก็บ Object เช่น User, Computer และ Group ใน Domain Domain Controller ให้บริการ Authentication และ Directory Service ก่อน Promote Server เป็น Domain Controller ควรกำหนด Static IP และ DNS ที่เหมาะสม โครงสร้าง Organizational Unit (OU) ช่วยจัดกลุ่ม Object เพื่อมอบหมายการดูแลและใช้ Group Policy ไม่ควรออกแบบ OU ตามแผนผังองค์กรอย่างเดียว แต่ควรคำนึงถึงขอบเขตนโยบายและงานบริหาร
+
+Group Policy ใช้กำหนดการตั้งค่าคอมพิวเตอร์และผู้ใช้จากส่วนกลาง GPO เชื่อมกับ Site, Domain หรือ OU ลำดับการประมวลผลทั่วไปคือ Local, Site, Domain และ OU คำสั่ง gpupdate /force ขออัปเดตนโยบาย และ gpresult /r แสดงผลนโยบายที่มีผล การแก้ปัญหาควรตรวจ Security Filtering, WMI Filter, Link และลำดับการสืบทอด
+
+การจัดการบัญชีควรใช้หลัก Least Privilege ผู้ดูแลใช้บัญชี Admin เฉพาะงานบริหาร แบ่งสิทธิ์ผ่าน Security Group และหลีกเลี่ยงการให้สิทธิ์ผู้ใช้โดยตรง ตั้งนโยบายรหัสผ่านและ Account Lockout ให้เหมาะสม เปิด Audit ตามความจำเป็น และทบทวนสมาชิกกลุ่มสิทธิ์สูงเป็นระยะ
+
+Windows Update และการ Patch สำคัญต่อความปลอดภัย ควรทดสอบ Update ในกลุ่มเล็ก สำรองข้อมูล และกำหนด Maintenance Window ก่อนใช้กับระบบจริง Backup ต้องครอบคลุมข้อมูลและส่วนที่จำเป็นต่อการกู้ระบบ การมี Backup อย่างเดียวไม่พอ ต้องทดลอง Restore และบันทึก Recovery Time Objective กับ Recovery Point Objective
+
+เครื่องมือวิเคราะห์ปัญหา ได้แก่ Event Viewer สำหรับ System, Application และ Security logs, Task Manager และ Resource Monitor สำหรับ CPU, Memory, Disk และ Network, Services.msc สำหรับสถานะ Service, Performance Monitor สำหรับ Counter ระยะยาว และ PowerShell Get-Service กับ Get-WinEvent สำหรับการตรวจแบบคำสั่ง
+
+แนวทางดูแล Server: ตั้งชื่อและ IP ตามมาตรฐาน บันทึกการเปลี่ยนแปลง เปิด Firewall เฉพาะ Port ที่จำเป็น ใช้ Remote Desktop ผ่านเครือข่ายที่เชื่อถือได้หรือ VPN แยกหน้าที่ Server เมื่อเหมาะสม เฝ้าระวังพื้นที่ Disk และ Event สำคัญ ทดสอบแผนกู้คืน และไม่ปิดระบบรักษาความปลอดภัยเพียงเพื่อให้โปรแกรมทำงานโดยไม่หาสาเหตุ
+
+Roles และ Features ต่างกันอย่างไร
+
+Role คือหน้าที่หลักที่ Server ให้บริการแก่ผู้ใช้หรือเครื่องอื่น เช่น AD DS, DNS, DHCP, File Server และ IIS ส่วน Feature คือความสามารถสนับสนุนระบบ เช่น .NET Framework, Failover Clustering หรือเครื่องมือบริหาร Role หนึ่งอาจติดตั้ง Feature ที่จำเป็นให้อัตโนมัติ ผู้ดูแลควรตรวจ Dependency ก่อนติดตั้งและบันทึกเหตุผลของทุก Role
+
+Roles สำคัญที่ควรรู้
+
+- Active Directory Domain Services จัดเก็บ User, Computer, Group และนโยบายของ Domain
+- DNS Server แปลงชื่อเป็น IP และสำคัญต่อการค้นหา Domain Controller
+- DHCP Server แจก IP, Gateway และ DNS ให้ Client
+- File and Storage Services ให้บริการ Share, NTFS Permission และการจัดเก็บข้อมูล
+- Web Server (IIS) ให้บริการ HTTP/HTTPS และ Web Application
+- Hyper-V สร้างและบริหาร Virtual Machine, Virtual Switch และ Virtual Disk
+
+Domain และ Domain Controller
+
+Domain คือขอบเขตการบริหาร Identity และทรัพยากรที่ใช้ฐานข้อมูล Directory ร่วมกัน Domain Controller คือ Windows Server ที่ติดตั้ง AD DS และถูก Promote เพื่อให้บริการ Authentication, Authorization และ Replication Client ที่ Join Domain จะใช้บัญชี Domain และรับ Group Policy ได้ DNS ของ Client ต้องชี้ไปยัง DNS ภายในที่หา Record ของ AD ได้
+
+User และ Group
+
+User Object แทนบุคคลหรือบัญชีบริการ ส่วน Group ใช้รวมบัญชีเพื่อมอบสิทธิ์ หลักปฏิบัติที่ดีคือเพิ่ม User เข้า Security Group แล้วให้ Permission กับ Group แทนการให้รายบุคคล วิธีนี้ลดงานเมื่อผู้ใช้ย้ายแผนก หลีกเลี่ยงการใช้ Domain Admin สำหรับงานทั่วไปและทบทวนสมาชิกกลุ่มสิทธิ์สูงเป็นระยะ
+
+การติดตั้ง Role ผ่าน Server Manager
+
+1. เปิด Server Manager และเลือก Add Roles and Features
+2. เลือก Role-based or feature-based installation
+3. เลือก Server ปลายทาง
+4. เลือก Role และ Feature ที่จำเป็น
+5. อ่าน Confirmation และผลกระทบเรื่อง Restart
+6. กด Install และตรวจผลใน Notifications
+7. ทำ Post-deployment Configuration ของ Role เช่น DHCP Authorization หรือ AD DS Promotion
+
+การติดตั้งและตรวจ Role ด้วย PowerShell
+
+ดู Roles และ Features ทั้งหมด:
+
+Get-WindowsFeature
+
+ค้นหา Role ที่ชื่อเกี่ยวกับ DNS:
+
+Get-WindowsFeature *DNS*
+
+ติดตั้ง DNS Server พร้อมเครื่องมือบริหาร:
+
+Install-WindowsFeature DNS -IncludeManagementTools
+
+ติดตั้ง Web Server IIS:
+
+Install-WindowsFeature Web-Server -IncludeManagementTools
+
+ตรวจผลลัพธ์และค่า Restart Needed ทุกครั้ง หากเป็นระบบจริงควรทดสอบคำสั่งใน Lab ก่อน
+
+Windows Admin Center และ Server Manager
+
+Server Manager เหมาะกับการเพิ่ม Role และดู Event/Service ของหลาย Server ใน Windows ส่วน Windows Admin Center ให้หน้าเว็บสำหรับบริหาร Server, Certificate, Firewall, Storage และ Virtual Machine ตาม Extension ที่ติดตั้ง PowerShell เหมาะกับ Automation และการทำซ้ำ ทั้งสามเครื่องมือใช้งานร่วมกันได้
+
+Troubleshooting Windows Server เบื้องต้น
+
+1. ตรวจเวลาและ Time Zone เพราะ Authentication ใน Domain ไวต่อเวลาที่คลาดเคลื่อน
+2. ตรวจ IP, Prefix, Gateway และ DNS ด้วย `Get-NetIPConfiguration`
+3. ตรวจ Service ด้วย `Get-Service` หรือ Services console
+4. ตรวจ System/Application Log ใน Event Viewer โดยดูเวลา, Source และ Event ID
+5. ตรวจ Port ด้วย `Test-NetConnection server -Port number`
+6. ตรวจ Resource ได้แก่ CPU, Memory, Disk และพื้นที่ว่าง
+7. ตรวจ Windows Update และการเปลี่ยนแปลงล่าสุด
+8. เปลี่ยนทีละจุดและบันทึกผล หลีกเลี่ยงการ Restart โดยไม่เก็บหลักฐาน
+
+คำสั่งที่ใช้บ่อย
+
+ดู Service ที่กำลังทำงาน:
+
+Get-Service | Where-Object Status -eq Running
+
+ดู Event Error ล่าสุดจาก System Log:
+
+Get-WinEvent -LogName System -MaxEvents 50
+
+ตรวจ TCP Port ของ Server:
+
+Test-NetConnection server.example.local -Port 443
+
+ดูการตั้งค่า Network:
+
+Get-NetIPConfiguration
+
+สรุปหัวข้อ Windows Server
+
+- Roles คือบริการหลัก ส่วน Features คือความสามารถสนับสนุน
+- AD DS จัดการ Identity และ Domain; DNS เป็นองค์ประกอบสำคัญของ AD
+- ติดตั้ง Role ได้ทั้ง Server Manager และ PowerShell
+- Event Viewer, Services และ PowerShell เป็นเครื่องมือหลักในการตรวจปัญหา
+- ใช้ Least Privilege, Patch, Backup และทดสอบ Restore เป็นประจำ
+
+แหล่งศึกษา: Microsoft Learn, Windows Server documentation และ Windows Server security guidance

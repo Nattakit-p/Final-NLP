@@ -1,0 +1,15 @@
+id,question,expected_answer,expected_source,has_answer
+1,"DHCP คืออะไร","Protocol ที่แจก IP Address, Subnet Mask, Default Gateway, DNS Server และระยะเวลาเช่าให้ Client อัตโนมัติ","05_dhcp_server.txt",true
+2,"DHCP Scope คืออะไร","ชุดการตั้งค่าสำหรับ Subnet หนึ่ง ประกอบด้วยช่วง IP, Subnet Mask, Lease Duration, Exclusion และ Options","05_dhcp_server.txt",true
+3,"DNS ทำหน้าที่อะไร","แปลงชื่อ Domain เป็น IP Address และสามารถทำ Reverse Lookup จาก IP เป็นชื่อ","04_dns.txt",true
+4,"NAT คืออะไร","การแปลง Address ใน Packet ระหว่างเครือข่าย เช่น แปลง Private IP เป็น Public IP","09_nat_routing.txt",true
+5,"IIS คืออะไร","Web Server Role ของ Windows Server สำหรับให้บริการเว็บไซต์และ Web Application ผ่าน HTTP/HTTPS","07_iis_web_server.txt",true
+6,"Default Gateway คืออะไร","IP Address ของ Router ในวงเดียวกับ Host ที่รับ Packet เพื่อส่งต่อไปยังเครือข่ายอื่น","01_network_basics.txt",true
+7,"คำสั่งดู IP บน Ubuntu คืออะไร","ใช้คำสั่ง ip address หรือ ip a","08_linux_networking.txt",true
+8,"UFW คืออะไร","เครื่องมือจัดการ Firewall เริ่มต้นที่ใช้งานง่ายบน Ubuntu","10_firewall_security.txt",true
+9,"Subnetting คืออะไร","การแบ่ง IP Network ขนาดใหญ่เป็นเครือข่ายย่อยเพื่อจัดสรร Address และแยก Broadcast Domain","03_subnetting.txt",true
+10,"IP Forwarding ใช้ทำอะไร","ทำให้ระบบรับ Packet จาก Interface หนึ่งแล้วส่งออกอีก Interface เพื่อทำหน้าที่ Router หรือ Gateway","09_nat_routing.txt",true
+11,"How can I inspect the routing table on Ubuntu?","Use ip route.","08_linux_networking.txt",true
+12,"What is a DHCP reservation?","It binds a selected IP address to a client's MAC address.","05_dhcp_server.txt",true
+13,"วิธีติดตั้ง Adobe Photoshop ทำอย่างไร","ไม่พบข้อมูลในเอกสาร","",false
+14,"Minecraft สร้าง Nether Portal อย่างไร","ไม่พบข้อมูลในเอกสาร","",false

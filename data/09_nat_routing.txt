@@ -1,0 +1,150 @@
+Routing, NAT และ IP Forwarding
+
+Routing คือการเลือกเส้นทางส่ง IP Packet ระหว่าง Network Router ตรวจ Destination IP แล้วเปรียบเทียบกับ Routing Table ด้วยหลัก Longest Prefix Match คือเลือก Route ที่มี Prefix ตรงและเฉพาะที่สุด หากไม่มี Route เฉพาะจะใช้ Default Route 0.0.0.0/0 สำหรับ IPv4 หรือ ::/0 สำหรับ IPv6 หากไม่มีทั้งคู่ Router จะทิ้ง Packet และอาจส่งข้อความแจ้งกลับ
+
+Routing Table ประกอบด้วย Destination Prefix, Next Hop หรือ Gateway, Interface และ Metric Directly Connected Route เกิดจาก Interface ที่มี IP ส่วน Static Route ผู้ดูแลกำหนดเอง เหมาะกับเครือข่ายไม่ซับซ้อน Dynamic Routing Protocol เช่น OSPF แลกเปลี่ยน Route อัตโนมัติ เหมาะกับระบบที่มีหลาย Router และเส้นทางเปลี่ยนได้
+
+บน Windows ใช้ route print หรือ Get-NetRoute ดูตารางเส้นทาง และ tracert ตรวจ Hop บน Linux ใช้ ip route และ traceroute หรือ tracepath การเพิ่ม Route ชั่วคราวบน Linux มีรูปแบบ ip route add prefix via gateway แต่การทำถาวรควรกำหนดผ่านระบบ Network Configuration ของ Distribution
+
+NAT หรือ Network Address Translation คือการแปลงข้อมูล Address ใน Packet ระหว่างเครือข่าย Source NAT แปลง Source Address มักใช้เมื่อลูกข่าย Private IP ออก Internet Destination NAT แปลง Destination Address มักใช้เผยแพร่บริการภายใน Port Address Translation หรือ PAT ทำให้หลาย Client ใช้ Public IP เดียวโดยแยก Session ด้วย Port
+
+ตัวอย่างเมื่อ 192.168.10.25 ติดต่อเว็บภายนอก Router ทำ Source NAT เป็น Public IP และบันทึก State เมื่อคำตอบกลับ Router ใช้ State แปลงกลับไปยัง Client ที่ถูกต้อง NAT ไม่ใช่ Firewall โดยอัตโนมัติ แม้การไม่มี Port Forward จะลดการเข้าถึงจากภายนอก แต่ยังต้องมี Firewall Policy ควบคุม Traffic
+
+Port Forwarding เป็น Destination NAT ที่จับคู่ Public IP และ Port ไปยัง Server ภายใน เช่น TCP 443 ไป 192.168.10.50:443 ต้องตรวจว่า Server ใช้ Default Gateway กลับผ่าน Router ที่ทำ NAT มิฉะนั้นเส้นทางขากลับอาจไม่สมมาตร ควรเปิดเฉพาะ Port ที่จำเป็น ใช้ HTTPS และจำกัด Source เมื่อทำได้
+
+IP Forwarding คือความสามารถของระบบปฏิบัติการในการรับ Packet จาก Interface หนึ่งแล้วส่งออกอีก Interface บน Linux ตรวจด้วย sysctl net.ipv4.ip_forward หากค่าเป็น 0 เครื่องจะไม่ Route IPv4 แม้มี Route ครบ การทำ Linux Gateway ต้องเปิด Forwarding ตั้ง Routing และกำหนด Firewall/NAT Rule ให้สอดคล้อง
+
+TTL ลดลงหนึ่งทุกครั้งที่ผ่าน Router ป้องกัน Packet วนไม่สิ้นสุด traceroute อาศัย TTL เพื่อค้น Hop ปัญหา Routing ที่พบบ่อยคือ Subnet ซ้อนกัน, Default Route ผิด, ไม่มี Return Route, Firewall บล็อก และ NAT Rule ไม่ตรง Interface การวิเคราะห์ควรตรวจทั้งขาไปและขากลับด้วย Routing Table, Packet Capture และ Counter ของ Firewall
+
+Routing Table มีข้อมูลอะไรบ้าง
+
+Routing Table ระบุ Destination Prefix, Next Hop, Outgoing Interface และ Metric Connected Route เกิดจาก Network ที่ต่อกับ Interface โดยตรง Static Route ถูกกำหนดโดยผู้ดูแล และ Default Route ใช้เมื่อไม่มี Route ที่เฉพาะกว่า หลัก Longest Prefix Match หมายความว่า `/24` จะถูกเลือกก่อน `/16` เมื่อทั้งสอง Route ครอบคลุม Destination เดียวกัน
+
+ตรวจ Routing บน Linux
+
+ip route
+
+ใช้แสดง Routing Table และ Default Route
+
+ip route get 203.0.113.10
+
+ใช้ตรวจว่า Linux จะเลือก Source Address, Gateway และ Interface ใดเพื่อไปยัง Destination
+
+เพิ่ม Static Route ชั่วคราว:
+
+sudo ip route add 10.20.0.0/16 via 192.168.1.254
+
+ลบ Static Route:
+
+sudo ip route del 10.20.0.0/16 via 192.168.1.254
+
+Static Route แบบชั่วคราวจะหายหลัง Restart การทำถาวรบน Ubuntu ควรกำหนดผ่าน Netplan
+
+SNAT, DNAT, PAT และ MASQUERADE ต่างกันอย่างไร
+
+- SNAT หรือ Source NAT เปลี่ยน Source IP มักใช้เมื่อ LAN ออกไปยัง WAN และ Router มี Public IP คงที่
+- DNAT หรือ Destination NAT เปลี่ยน Destination IP/Port มักใช้ Port Forwarding จากภายนอกไปยัง Server ภายใน
+- PAT หรือ Port Address Translation แยก Session ด้วยหมายเลข Port ทำให้หลาย Client ใช้ Public IP เดียวกัน
+- MASQUERADE เป็นรูปแบบ Source NAT ที่เหมาะกับ Interface ขาออกซึ่ง IP อาจเปลี่ยน เช่น DHCP หรือ PPP โดยระบบใช้ Address ปัจจุบันของ Interface
+
+Linux Gateway สอง Interface
+
+ตัวอย่าง Ubuntu Server มี `ens160` ต่อ LAN 192.168.50.0/24 โดย Server ใช้ 192.168.50.1 และ `ens192` ต่อเครือข่ายขาออก Client ใน LAN ตั้ง Default Gateway เป็น 192.168.50.1 Linux Gateway ต้องมี Address ถูกต้องทั้งสอง Interface, มี Default Route ออก `ens192`, เปิด IP Forwarding และมี Firewall/NAT Rule
+
+ขั้นตอนทำให้ LAN ออก Internet ผ่าน NAT
+
+1. ตรวจ Interface และ Address ด้วย `ip a`
+2. ตรวจ Default Route ขาออกด้วย `ip route`
+3. เปิด IPv4 Forwarding
+4. สร้าง MASQUERADE Rule ที่ Outbound Interface
+5. อนุญาต Forward Traffic จาก LAN ไป WAN และ Traffic ตอบกลับ
+6. ตั้ง Client ให้ใช้ Linux Gateway เป็น Default Gateway
+7. ตรวจ DNS ของ Client
+8. ทดสอบ Ping Gateway, Public IP และชื่อ Domain ตามลำดับ
+
+เปิด IP Forwarding ชั่วคราว:
+
+sudo sysctl -w net.ipv4.ip_forward=1
+
+ตรวจค่า:
+
+sysctl net.ipv4.ip_forward
+
+การตั้งถาวรสามารถกำหนด `net.ipv4.ip_forward=1` ในไฟล์ภายใต้ `/etc/sysctl.d/` แล้วโหลดค่าตามวิธีของระบบ
+
+ตัวอย่าง iptables NAT
+
+สร้าง MASQUERADE ให้ LAN 192.168.50.0/24 ออกทาง `ens192`:
+
+sudo iptables -t nat -A POSTROUTING -s 192.168.50.0/24 -o ens192 -j MASQUERADE
+
+อนุญาต Session ใหม่จาก LAN ออก WAN:
+
+sudo iptables -A FORWARD -i ens160 -o ens192 -s 192.168.50.0/24 -j ACCEPT
+
+อนุญาต Traffic ตอบกลับที่เป็น Established/Related:
+
+sudo iptables -A FORWARD -i ens192 -o ens160 -d 192.168.50.0/24 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+ดู NAT Rule และ Counter:
+
+sudo iptables -t nat -L -n -v
+
+ดู FORWARD Chain:
+
+sudo iptables -L FORWARD -n -v
+
+คำสั่งเหล่านี้เป็นตัวอย่างสำหรับ Lab ชื่อ Interface และ Subnet ต้องเปลี่ยนให้ตรงระบบจริง Rule ที่เพิ่มโดยตรงอาจไม่คงอยู่หลัง Restart จึงต้องใช้วิธีบันทึก Rule ที่เหมาะกับ Distribution ห้ามคัดลอกไปยัง Production โดยไม่ตรวจ Policy เดิม
+
+POSTROUTING คืออะไร
+
+POSTROUTING เป็น Chain ใน NAT Table ที่ประมวลผลหลังระบบเลือก Route แล้วและก่อน Packet ออกจาก Interface จึงเหมาะกับ SNAT หรือ MASQUERADE ส่วน DNAT สำหรับ Traffic ขาเข้ามักเกิดใน PREROUTING ก่อนเลือก Route
+
+Port Forwarding ด้วย DNAT
+
+ตัวอย่างแนวคิดคือรับ TCP 443 ที่ WAN แล้วแปลง Destination ไปยัง Web Server 192.168.50.10:443 นอกจาก DNAT ต้องอนุญาต FORWARD และตรวจว่า Web Server ส่ง Return Traffic กลับผ่าน Gateway เดียวกัน หาก Return Route ไปคนละทาง Session อาจล้มเหลว
+
+UFW และ NAT
+
+UFW ใช้ควบคุม Firewall Rule ได้สะดวก แต่ NAT บางกรณีต้องกำหนดใน `/etc/ufw/before.rules` และเปิด Forward Policy ให้เหมาะสม ก่อนแก้ควรสำรองไฟล์ ตรวจ Subnet/Interface และใช้ Documentation ของ Ubuntu รุ่นที่ใช้งาน การแก้ Rule ผิดอาจตัด SSH หรือเปิด Traffic กว้างเกินไป
+
+Troubleshooting NAT และ Routing
+
+1. ตรวจ `ip link` และ `ip a` ว่าทั้งสอง Interface เป็น UP และมี Address ถูกต้อง
+2. ตรวจ `ip route` ว่ามี Route ไป LAN และ Default Route ไป WAN
+3. ตรวจ Client ว่าใช้ Linux Gateway เป็น Default Gateway
+4. ตรวจ `sysctl net.ipv4.ip_forward` ต้องเป็น 1
+5. ตรวจ FORWARD Policy และ Rule ว่า Packet ได้รับอนุญาต
+6. ตรวจ NAT POSTROUTING และ Counter ว่า Rule ถูก Match
+7. Ping Gateway จาก Client แล้ว Ping Public IP
+8. หาก Public IP ได้แต่ชื่อไม่ได้ ให้ตรวจ DNS
+9. ใช้ `traceroute` หรือ `tracepath` ตรวจว่า Packet หยุดที่ Hop ใด
+10. ใช้ Packet Capture ที่ Interface ขาเข้าและขาออกเพื่อดูทิศทางจริง
+
+ปัญหาที่พบบ่อย
+
+- Client ไม่ได้ตั้ง Default Gateway มายัง Linux Router
+- เปิด Forwarding แต่ FORWARD Chain ยัง Drop
+- NAT Rule ระบุ Subnet หรือ Outbound Interface ผิด
+- มี Route ขาไปแต่ไม่มี Return Route
+- Server ปลายทางใช้ Gateway อื่น ทำให้เส้นทางขากลับไม่สมมาตร
+- DNS ผิดแต่เข้า Public IP ได้ จึงเข้าใจผิดว่า NAT เสีย
+- Rule หายหลัง Restart เพราะไม่ได้บันทึกแบบถาวร
+- ใช้ NAT เพื่อแก้ Routing ทั้งที่ควรเพิ่ม Route ระหว่างเครือข่ายภายใน
+
+ข้อควรระวัง
+
+NAT ไม่ใช่ระบบรักษาความปลอดภัยแทน Firewall ต้องใช้ Policy Allow/Deny แยกต่างหาก เปิด Port Forward เฉพาะบริการจำเป็น จำกัด Source หากทำได้ และเก็บ Configuration เดิมก่อนเปลี่ยน Rule การทำ Gateway ระยะไกลควรมี Console สำรองเพื่อกู้ระบบเมื่อ Rule บล็อกการบริหาร
+
+สรุปคำสั่งสำคัญ
+
+- `ip route` ดู Routing Table และ Default Route
+- `ip route get destination` ตรวจเส้นทางที่ Kernel จะเลือก
+- `sysctl net.ipv4.ip_forward` ตรวจ IP Forwarding
+- `sudo sysctl -w net.ipv4.ip_forward=1` เปิด Forwarding ชั่วคราว
+- `iptables -t nat -L -n -v` ดู NAT Rule และ Counter
+- `iptables -L FORWARD -n -v` ดู Forward Policy และ Rule
+- `ping` ทดสอบ Gateway และปลายทาง
+- `traceroute` หรือ `tracepath` ตรวจ Hop
+
+แหล่งศึกษา: IETF Internet Protocol standards, Ubuntu Server documentation, Netfilter/iptables documentation และ Linux kernel IP forwarding documentation

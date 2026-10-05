@@ -1,0 +1,89 @@
+Dynamic Host Configuration Protocol (DHCP)
+
+DHCP คือ Protocol ที่แจกการตั้งค่าเครือข่ายให้ Client อัตโนมัติ เช่น IP Address, Subnet Mask, Default Gateway, DNS Server และระยะเวลาเช่า Address การใช้ DHCP ลดการตั้งค่าทีละเครื่องและลด IP Conflict โดย Windows Server มี DHCP Server เป็น Server Role ที่ติดตั้งเพิ่มได้
+
+กระบวนการรับ Address ของ IPv4 มักเรียก DORA ประกอบด้วย DHCPDISCOVER ที่ Client ส่ง Broadcast เพื่อค้นหา Server, DHCPOFFER ที่ Server เสนอ Address, DHCPREQUEST ที่ Client ขอใช้ข้อเสนอ และ DHCPACK ที่ Serverยืนยัน Lease หากไม่สามารถให้ได้ Server อาจตอบ DHCPNAK เมื่อ Lease ใกล้ครึ่งเวลา Client จะพยายามต่ออายุกับ Server เดิม ถ้าไม่สำเร็จจะพยายาม Rebinding แบบ Broadcast ภายหลัง
+
+DHCP Scope คือชุดการตั้งค่าสำหรับ Subnet หนึ่ง Scope ต้องมีช่วง IP ที่แจกได้ Subnet Mask และ Lease Duration สามารถกำหนด Exclusion Range สำหรับ Address ที่ไม่ให้แจก เช่น ช่วงที่ใช้แบบ Static และกำหนด Scope Options เช่น Router หรือ Default Gateway, DNS Server และ DNS Domain Name ก่อนแจก Address ต้อง Activate Scope
+
+Reservation คือการผูก IP ที่กำหนดกับ MAC Address ของ Client เหมาะกับ Printer หรืออุปกรณ์ที่ต้องได้ Address เดิมแต่ยังต้องการบริหารจาก DHCP Reservation ต้องอยู่ภายในช่วงที่ Scope รองรับ ส่วน Exclusion เพียงป้องกันไม่ให้ Server แจก Address นั้นและไม่ได้ผูกกับอุปกรณ์
+
+ในสภาพแวดล้อม Active Directory ต้อง Authorize DHCP Server ที่ได้รับอนุญาต เพื่อลดความเสี่ยงจาก Server ที่ไม่พึงประสงค์ DHCP Client ใช้ UDP Port 68 และ Server ใช้ UDP Port 67 เนื่องจาก Broadcast ไม่ข้าม Router จึงใช้ DHCP Relay Agent หรือ IP Helper บน Router เพื่อส่งคำขอจาก Client ไปยัง Server ที่อยู่อีก Subnet
+
+DHCP Failover บน Windows Server ช่วยให้ DHCP Server สองเครื่องแบ่งข้อมูล Lease และให้บริการต่อเมื่อเครื่องหนึ่งขัดข้อง รูปแบบ Load Balance แบ่งภาระพร้อมกัน ส่วน Hot Standby ให้เครื่องหนึ่งเป็นหลักและอีกเครื่องรอสำรอง การใช้ Failover ต้องวางแผนเวลา State Switchover และตรวจการ Replication ของ Scope
+
+คำสั่ง Windows ที่ใช้กับ Client ได้แก่ ipconfig /all เพื่อดูค่า DHCP, ipconfig /release เพื่อคืน Lease และ ipconfig /renew เพื่อขอ Lease ใหม่ บน Linux สามารถดู Address ด้วย ip a และตรวจข้อมูล Network Manager ด้วย nmcli การ Capture Packet ช่วยตรวจว่า DORA หยุดอยู่ขั้นใด
+
+เมื่อ Client ไม่ได้รับ Address ให้ตรวจว่าสายและ VLAN ถูกต้อง Scope Active และยังมี Address ว่าง ตรวจ DHCP Service, Firewall, Relay และการ Authorize หากเครื่องได้ Address 169.254.x.x บน Windows มักหมายถึงไม่ได้รับคำตอบจาก DHCP ควรตรวจเส้นทาง Broadcast หรือ Relay ก่อนตั้ง IP เอง การพบ Address ซ้ำอาจเกิดจากอุปกรณ์ตั้ง Static ทับช่วง DHCP จึงควรแยก Static Range ด้วย Exclusion
+
+ส่วนประกอบของ DHCP Scope
+
+Scope หนึ่งควรตรงกับ Subnet หนึ่งและมีข้อมูลสำคัญ ได้แก่ Network/Mask, Address Pool, Exclusion Range, Lease Duration และ Scope Options Address Pool คือช่วงที่ Server มีสิทธิ์แจก Exclusion Range คือช่วงภายใน Pool ที่ห้ามแจก ส่วน Reservation ผูก Address กับ MAC Address ของ Client เฉพาะเครื่อง
+
+Scope Options ที่ใช้บ่อยคือ Option 003 Router สำหรับ Default Gateway, Option 006 DNS Servers และ Option 015 DNS Domain Name Option สามารถกำหนดระดับ Server เพื่อใช้กับหลาย Scope หรือกำหนดระดับ Scope เพื่อใช้เฉพาะ Subnet โดยค่าที่เฉพาะกว่าจะมีผลตามการออกแบบของระบบ
+
+ขั้นตอนติดตั้งและสร้าง DHCP Scope บน Windows Server
+
+1. กำหนด Static IP ให้ Server และตรวจ DNS ก่อนติดตั้ง Role
+2. เปิด Server Manager แล้วเลือก Add Roles and Features
+3. ติดตั้ง DHCP Server Role และทำ Post-install Configuration
+4. Authorize Server ใน Active Directory หากเครื่องอยู่ใน Domain
+5. เปิด DHCP Manager แล้วสร้าง New Scope
+6. ระบุชื่อ Scope, Start/End IP, Prefix/Mask และ Exclusion
+7. กำหนด Lease Duration ให้เหมาะกับจำนวน Client และลักษณะการใช้งาน
+8. กำหนด Router, DNS Server และ Domain Name
+9. Activate Scope แล้วทดสอบจาก Client
+
+ตัวอย่าง Scope ห้องปฏิบัติการ
+
+Network คือ 192.168.30.0/24, Gateway 192.168.30.1 และ DNS 192.168.30.10 อาจกำหนด Pool เป็น 192.168.30.50-192.168.30.200, Exclusion เป็น 192.168.30.50-59 สำหรับอุปกรณ์ที่ตั้งค่าไว้ และ Lease 8 ชั่วโมง Client จะได้รับ Address ที่ว่างพร้อม Mask /24, Gateway และ DNS ตาม Options
+
+Reservation กับ Static IP ต่างกันอย่างไร
+
+Reservation บริหารที่ DHCP Server และ Client ยังคงตั้งรับค่าอัตโนมัติ เหมาะเมื่อผู้ดูแลต้องการเปลี่ยน Option จากส่วนกลาง Static IP กำหนดที่อุปกรณ์และยังทำงานได้แม้ DHCP ล่ม แต่ต้องควบคุมไม่ให้ทับ Pool ทั้งสองวิธีทำให้เครื่องมี Address เดิมได้ แต่ตำแหน่งที่บริหารต่างกัน
+
+DHCP Relay ใช้ทำอะไร
+
+DHCP Discover เป็น Broadcast และ Router ปกติไม่ส่ง Broadcast ข้าม Subnet หาก Server อยู่คนละ VLAN ต้องกำหนด DHCP Relay หรือ IP Helper บน Router/Layer 3 Switch Relay รับคำขอจาก Client แล้วส่งแบบ Unicast ไปยัง DHCP Server พร้อมข้อมูล Subnet ต้นทาง Server จึงเลือก Scope ที่ถูกต้องได้ คำตอบถูกส่งกลับผ่าน Relay ไปยัง Client
+
+คำสั่ง Client บน Windows
+
+ดูว่าเปิด DHCP หรือไม่ รวมถึง Lease Obtained และ Lease Expires:
+
+ipconfig /all
+
+คืน Address ปัจจุบัน:
+
+ipconfig /release
+
+ขอ Address ใหม่:
+
+ipconfig /renew
+
+ล้างและลงทะเบียน DNS ใหม่เมื่อจำเป็น:
+
+ipconfig /flushdns
+ipconfig /registerdns
+
+กรณีได้ Address 169.254.x.x
+
+ช่วง 169.254.0.0/16 เป็น APIPA ที่ Windows เลือกเองเมื่อไม่ได้รับ DHCP Lease ให้ตรวจตามลำดับ: Link และ VLAN, DHCP Client Service, Scope Active และมี Address ว่าง, DHCP Server Service, Firewall UDP 67/68, Relay/IP Helper และการ Authorize ใน AD การตั้ง Static IP ชั่วคราวอาจช่วยทดสอบเส้นทาง แต่ไม่ใช่การแก้สาเหตุ DHCP
+
+Troubleshooting DORA ด้วย Packet Capture
+
+- ไม่มี Discover: ตรวจ Client Service, Interface และ Network Driver
+- มี Discover แต่ไม่มี Offer: ตรวจ Server, Scope, VLAN, Relay และ Firewall
+- มี Offer แต่ไม่มี Request: Client อาจได้รับข้อเสนอหลาย Serverหรือมีปัญหาการส่งกลับ
+- มี Request แต่ไม่มี ACK: ตรวจ Address Conflict, Policy, Scope และ Server Log
+- ได้ ACK แต่ใช้งานไม่ได้: ตรวจ Options โดยเฉพาะ Mask, Gateway และ DNS
+
+สรุปคำสำคัญและคำสั่ง
+
+- DORA คือ Discover, Offer, Request และ Acknowledge
+- Scope กำหนดช่วงและ Options ของ Subnet
+- Exclusion ป้องกัน Address ไม่ให้ถูกแจก ส่วน Reservation ผูก Address กับ Client
+- Relay ช่วยให้ DHCP ให้บริการข้าม Router ได้
+- `ipconfig /all` ใช้ดู Lease, `/release` ใช้คืน และ `/renew` ใช้ขอใหม่
+- Address 169.254.x.x มักแสดงว่า Client ติดต่อ DHCP ไม่สำเร็จ
+
+แหล่งศึกษา: Microsoft Learn, DHCP Server in Windows Server และ Windows Server Network Infrastructure training

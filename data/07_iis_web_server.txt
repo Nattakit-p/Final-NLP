@@ -1,0 +1,100 @@
+Internet Information Services (IIS)
+
+IIS คือ Web Server Role ของ Windows Server ใช้ให้บริการเว็บไซต์และ Web Application ผ่าน HTTP และ HTTPS สามารถติดตั้งจาก Server Manager หรือ PowerShell เมื่อเพิ่ม Web Server (IIS) Role ควรเลือกเฉพาะ Role Services ที่แอปต้องใช้ เพื่อลดความซับซ้อนและพื้นที่โจมตี
+
+โครงสร้างหลักประกอบด้วย Site, Application และ Virtual Directory Site มี Binding ที่ระบุ Protocol, IP Address, Port และ Host Name หลายเว็บไซต์ใช้ IP เดียวกันได้โดยแยก Host Name Binding Application มีขอบเขตการตั้งค่าและทำงานกับ Application Pool ส่วน Physical Path ชี้ไปยังโฟลเดอร์เนื้อหาบน Disk
+
+Application Pool แยก Worker Process ของแต่ละกลุ่มเว็บไซต์ ช่วยแยกปัญหาและสิทธิ์ หาก Pool หนึ่งหยุด เว็บไซต์ใน Pool อื่นยังทำงานได้ Identity ของ Application Pool ควรมีสิทธิ์บนโฟลเดอร์เท่าที่จำเป็น เช่น Read สำหรับ Static Content และ Write เฉพาะตำแหน่งที่แอปต้องบันทึกจริง ไม่ควรให้ Full Control โดยไม่จำเป็น
+
+ไฟล์ web.config เก็บการตั้งค่าของ IIS และแอปในระดับเว็บไซต์หรือโฟลเดอร์ เช่น Default Document, Error Handling และ Authentication การแก้ไฟล์ผิดรูปแบบอาจทำให้เกิด HTTP 500.19 จึงควรสำรองและเปลี่ยนทีละส่วน การตั้งค่าบางชนิดถูก Lock ที่ Server Level และแก้ใน Site ไม่ได้
+
+HTTPS ป้องกันการดักอ่านและตรวจตัวตน Server ต้องมี Certificate ที่ชื่อสอดคล้องกับ Domain ยังไม่หมดอายุ และมี Chain ที่ Client เชื่อถือ หลังติดตั้ง Certificate ให้เพิ่ม https Binding โดยทั่วไปใช้ TCP Port 443 และเลือก Certificate ที่ถูกต้อง HTTP ใช้ TCP Port 80 ควร Redirect HTTP ไป HTTPS เมื่อแอปรองรับและทดสอบแล้ว
+
+Authentication ที่พบได้ ได้แก่ Anonymous สำหรับเนื้อหาสาธารณะ และ Windows Authentication สำหรับระบบภายใน Domain การเปิดหลายวิธีพร้อมกันต้องเข้าใจลำดับและสิทธิ์ NTFS ทั้ง Authentication และ Authorization ต้องผ่านจึงเข้าถึงไฟล์ได้ การตอบ 401 มักเกี่ยวกับการยืนยันตัวตน ส่วน 403 หมายถึง Server เข้าใจคำขอแต่ไม่อนุญาต
+
+การตรวจปัญหาเริ่มจากดูว่า Site และ Application Pool อยู่สถานะ Started ตรวจ Binding, DNS และ Firewall จาก Client ใช้ Test-NetConnection server-name -Port 80 หรือ 443 ตรวจ Port จากนั้นดู IIS access logs โดยปกติอยู่ใต้ %SystemDrive%\inetpub\logs\LogFiles และตรวจ Event Viewer รหัส 404 หมายถึงไม่พบ Resource, 500 เป็นข้อผิดพลาดฝั่ง Server และ 503 มักเกี่ยวข้องกับ Service หรือ Application Pool ไม่พร้อม
+
+แนวทางความปลอดภัย: ลบ Default Site หากไม่ใช้ ปิด Directory Browsing ไม่เปิดเผย Error รายละเอียดแก่ผู้ใช้ภายนอก จำกัด Request และ Upload ตามงาน อัปเดต Windows กับ Runtime สำรอง Configuration และ Certificate แยก Log ไปยังพื้นที่ที่เฝ้าระวังได้ และใช้บัญชีบริการที่มีสิทธิ์ต่ำ
+
+Default Web Site และ Document Root
+
+หลังติดตั้ง IIS จะมี Default Web Site ซึ่งปกติ Binding กับ HTTP Port 80 และชี้ Physical Path ไปที่ `C:\inetpub\wwwroot` ไฟล์หน้าเริ่มต้นอาจเป็น `iisstart.htm` ผู้ดูแลสามารถสร้าง `index.html` ใน Document Root และเพิ่มชื่อไฟล์ใน Default Document หากยังไม่มี เมื่อ Browser ขอ `/` IIS จะค้นไฟล์ Default Document ตามลำดับ
+
+ขั้นตอนติดตั้ง IIS ผ่าน Server Manager
+
+1. เปิด Server Manager แล้วเลือก Add Roles and Features
+2. เลือก Web Server (IIS)
+3. เพิ่ม Management Tools และ Role Services ที่แอปต้องใช้
+4. กด Install และตรวจว่า World Wide Web Publishing Service ทำงาน
+5. เปิด Browser บน Server ไปที่ `http://localhost`
+6. จาก Client ทดสอบ `http://IP-ของ-Server`
+7. หาก Localhost ใช้ได้แต่ Client เข้าไม่ได้ ให้ตรวจ Firewall, Binding และเส้นทางเครือข่าย
+
+ติดตั้ง IIS ด้วย PowerShell
+
+Install-WindowsFeature Web-Server -IncludeManagementTools
+
+ตรวจสถานะ IIS Service:
+
+Get-Service W3SVC
+
+เริ่ม Service หากหยุดอยู่:
+
+Start-Service W3SVC
+
+ตัวอย่างหน้า index.html
+
+สร้างไฟล์ `C:\inetpub\wwwroot\index.html` โดยมีเนื้อหาพื้นฐานดังนี้:
+
+<html>
+  <head><title>NetLab Web Server</title></head>
+  <body><h1>IIS is working</h1></body>
+</html>
+
+ควรบันทึกเป็นไฟล์ `.html` จริง ไม่ใช่ `.html.txt` และให้ IIS_IUSRS หรือ Application Pool Identity มีสิทธิ์ Read ตามความจำเป็น
+
+Binding ใช้ทำอะไร
+
+Binding ระบุว่า Site รับคำขอด้วย Protocol ใด ที่ IP, Port และ Host Name ใด ตัวอย่าง Site A ใช้ `http`, All Unassigned, Port 80, Host Name `site-a.example.local` ส่วน Site B ใช้ Host Name ต่างกันบน IP และ Port เดียวกันได้ DNS ต้องแปลง Host Name มายัง Server ถูกต้อง หาก Browser ส่งชื่อไม่ตรง Binding อาจเข้า Site อื่นหรือไม่พบ Site
+
+HTTPS และ Certificate
+
+HTTPS ใช้ TCP 443 และต้องเพิ่ม Certificate ใน Server Certificates ก่อนสร้าง HTTPS Binding ชื่อใน Certificate ต้องตรงกับ Host Name และ Client ต้องเชื่อถือผู้ออก Certificate หลังตั้งค่าให้ทดสอบ Expiration, Certificate Chain และ Protocol ที่รองรับ ไม่ควรใช้ Certificate หมดอายุในระบบจริง
+
+Application Pool ทำหน้าที่อะไร
+
+Application Pool แยก Worker Process และ Configuration ของเว็บไซต์ การแยก Pool ช่วยไม่ให้ปัญหาของแอปหนึ่งกระทบอีกแอป Identity ของ Pool ต้องมี Permission เท่าที่จำเป็น หาก Site ตอบ 503 ให้ตรวจว่า Pool Started หรือหยุดเพราะ Rapid-Fail Protection หากตอบ 500 ให้ตรวจ Event Viewer, Failed Request Tracing และ Log ของแอป
+
+Firewall และการทดสอบ Port
+
+ทดสอบจาก Windows Client ว่า TCP 80 เปิดหรือไม่:
+
+Test-NetConnection 192.168.10.50 -Port 80
+
+ทดสอบ HTTPS:
+
+Test-NetConnection 192.168.10.50 -Port 443
+
+หากต้องสร้าง Inbound Rule ควรเปิดเฉพาะ Profile, Port และ Source ที่จำเป็น ไม่ควรปิด Windows Firewall ทั้งระบบเพื่อทดสอบถาวร
+
+Troubleshooting IIS ตามอาการ
+
+- Localhost ไม่ได้: ตรวจ IIS Role, W3SVC, Site, Application Pool และ Binding
+- Localhost ได้แต่ IP จาก Client ไม่ได้: ตรวจ Firewall, IP Binding, VLAN และ Routing
+- IP ได้แต่ Host Name ไม่ได้: ตรวจ DNS Record และ Host Name Binding
+- 401 Unauthorized: ตรวจ Authentication และบัญชีผู้ใช้
+- 403 Forbidden: ตรวจ Authorization, NTFS Permission, Default Document และ Directory Browsing
+- 404 Not Found: ตรวจ URL, Physical Path และชื่อไฟล์
+- 500 Internal Server Error: ตรวจ Application Log, web.config และ Runtime
+- 503 Service Unavailable: ตรวจ Application Pool และ Worker Process
+
+สรุปคำสั่งและตำแหน่งสำคัญ
+
+- Document Root เริ่มต้น: `C:\inetpub\wwwroot`
+- Access Log: `%SystemDrive%\inetpub\logs\LogFiles`
+- HTTP ใช้ TCP 80 และ HTTPS ใช้ TCP 443
+- `Install-WindowsFeature Web-Server -IncludeManagementTools` ใช้ติดตั้ง IIS
+- `Get-Service W3SVC` ใช้ตรวจ Web Service
+- `Test-NetConnection server -Port 80` ใช้ทดสอบ Port จาก Client
+
+แหล่งศึกษา: Microsoft Learn, IIS documentation และ Windows Server Web Server guidance

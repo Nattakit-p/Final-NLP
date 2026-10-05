@@ -1,0 +1,94 @@
+IP Addressing สำหรับผู้เริ่มต้น
+
+IP Address ใช้ระบุ Network Interface ในระบบที่สื่อสารด้วย Internet Protocol ปัจจุบันใช้ IPv4 และ IPv6 IPv4 มีขนาด 32 บิต เขียนเป็นเลขฐานสิบสี่ชุด เช่น 192.168.10.25 แต่ละชุดมีค่า 0 ถึง 255 IPv6 มีขนาด 128 บิต เขียนด้วยเลขฐานสิบหก เช่น 2001:db8:10::25 จึงมีจำนวน Address มากกว่าและรองรับการขยายเครือข่ายระยะยาว
+
+IPv4 Address ประกอบด้วยส่วน Network และ Host โดย Subnet Mask หรือ Prefix Length เป็นตัวกำหนดเส้นแบ่ง ตัวอย่าง 192.168.10.25/24 หมายถึง 24 บิตแรกเป็น Network Prefix ค่า Subnet Mask คือ 255.255.255.0 Network Address คือ 192.168.10.0 และ Broadcast Address คือ 192.168.10.255 โดยทั่วไป Host ใช้งานได้ตั้งแต่ 192.168.10.1 ถึง 192.168.10.254
+
+Private IPv4 Address ใช้ภายในองค์กรและไม่ถูก Route บน Internet ช่วงที่กำหนดไว้คือ 10.0.0.0/8, 172.16.0.0/12 และ 192.168.0.0/16 การออก Internet มักใช้ NAT แปลง Private Address เป็น Public Address Public IP ต้องไม่ซ้ำกันบน Internet ส่วน 127.0.0.0/8 เป็น Loopback โดย 127.0.0.1 ใช้ทดสอบ TCP/IP ภายในเครื่อง ช่วง 169.254.0.0/16 เป็น Link-local ที่ Windows อาจกำหนดให้อัตโนมัติเมื่อรับ DHCP ไม่สำเร็จ
+
+การตั้งค่าแบบ Static เหมาะกับ Server, Router, Printer หรืออุปกรณ์ที่ต้องมี Address คงที่ ผู้ดูแลต้องกำหนด IP Address, Prefix หรือ Subnet Mask, Default Gateway และ DNS Server ให้ถูกต้อง การตั้งแบบ Dynamic ใช้ DHCP แจกค่าต่าง ๆ อัตโนมัติ ลดความผิดพลาดและบริหารเครื่องจำนวนมากได้สะดวก
+
+Default Gateway ต้องอยู่ใน Subnet เดียวกับเครื่อง ตัวอย่างเครื่อง 192.168.10.25/24 สามารถใช้ Gateway 192.168.10.1 ได้ แต่ไม่ควรใช้ 192.168.20.1 โดยตรง DNS Server อาจอยู่ในวงเดียวกันหรือต่างวงก็ได้ หากต่างวงต้องมี Route ที่เข้าถึงได้ การตั้ง IP ซ้ำทำให้เกิด IP Conflict และการสื่อสารไม่เสถียร จึงควรวางแผน Address และบันทึกการใช้งาน
+
+คำสั่งตรวจสอบบน Windows คือ ipconfig /all ซึ่งแสดง Address, Mask, Gateway, DNS และสถานะ DHCP ส่วน PowerShell ใช้ Get-NetIPConfiguration บน Linux ใช้ ip address หรือคำสั่งย่อ ip a เพื่อดู Address ใช้ ip route ดู Routing Table และ Default Route ใช้ ping ทดสอบปลายทาง
+
+IPv6 ไม่มี Broadcast และใช้ Multicast แทน Link-local Address มักเริ่มด้วย fe80:: และใช้สื่อสารใน Link เดียว Global Unicast ใช้งานข้ามเครือข่ายได้ Prefix /64 พบได้บ่อยใน LAN การย่อ IPv6 ทำได้โดยตัดเลขศูนย์นำหน้า และใช้ :: แทนชุดศูนย์ต่อเนื่องได้หนึ่งครั้งต่อ Address
+
+แนวทางแก้ปัญหา: ตรวจว่า Address อยู่ในวงที่ต้องการ ตรวจ Prefix ตรวจ Gateway และ DNS จากนั้นทดสอบ ping 127.0.0.1, ping Address ของตนเอง, ping Gateway, ping IP ภายนอก และทดสอบชื่อ Domain ตามลำดับ วิธีนี้ช่วยแยกปัญหา TCP/IP, LAN, Routing และ DNS ออกจากกัน
+
+การวางแผน IPv4 Address ในเครือข่ายจริง
+
+ก่อนกำหนด IP ควรแยกเครือข่ายตามหน้าที่ เช่น User, Server, Management และ Guest แล้วกำหนด Prefix ให้รองรับจำนวนอุปกรณ์พร้อมเผื่อการเติบโต ตัวอย่างห้องปฏิบัติการใช้ 192.168.10.0/24 อาจกำหนด Gateway เป็น 192.168.10.1, ช่วง Server เป็น 192.168.10.10-30, ช่วง Printer เป็น 192.168.10.31-50 และให้ DHCP แจก 192.168.10.100-200 การแบ่งช่วงช่วยลดโอกาสตั้ง Static IP ทับกับ Address ที่ DHCP แจก
+
+Static IP กับ Dynamic IP ต่างกันอย่างไร
+
+- Static IP คือค่าที่ผู้ดูแลกำหนดคงที่ เหมาะกับ Server, Router, Switch Management และ Printer ที่ผู้ใช้ต้องเข้าถึงด้วย Address เดิม
+- Dynamic IP คือค่าที่ DHCP แจกตาม Lease เหมาะกับ Client จำนวนมาก เช่น Notebook และโทรศัพท์
+- DHCP Reservation เป็นทางเลือกกลาง อุปกรณ์ยังรับค่าจาก DHCP แต่ได้ IP เดิมตาม MAC Address จึงบริหารจากส่วนกลางได้
+
+ตัวอย่างการตรวจสอบบน Windows
+
+คำสั่งต่อไปนี้แสดงรายละเอียด IP, Mask, Gateway, DHCP และ DNS ของทุก Adapter:
+
+ipconfig /all
+
+PowerShell แสดงการตั้งค่าที่อ่านง่ายและแยกตาม Interface:
+
+Get-NetIPConfiguration
+
+ตรวจเฉพาะ IPv4 Address ที่กำหนดอยู่:
+
+Get-NetIPAddress -AddressFamily IPv4
+
+ดู Routing Table และ Default Route:
+
+Get-NetRoute -AddressFamily IPv4
+
+ตัวอย่างการตรวจสอบบน Ubuntu
+
+ดู IP Address และ Prefix ของทุก Interface:
+
+ip address
+
+รูปแบบย่อของคำสั่งเดียวกัน:
+
+ip a
+
+ดู Route และ Default Gateway:
+
+ip route
+
+ดูข้อมูล Interface ที่ NetworkManager บริหาร:
+
+nmcli device show
+
+ตัวอย่างการวิเคราะห์ค่า IP
+
+เครื่อง Client มีค่า 192.168.20.45/24, Gateway 192.168.20.1 และ DNS 192.168.20.10 ค่าเหล่านี้หมายความว่า Network คือ 192.168.20.0, Broadcast คือ 192.168.20.255 และ Client สื่อสารกับ Host 192.168.20.1-254 ได้โดยตรงผ่าน LAN เมื่อปลายทางอยู่นอกวง Client จะส่ง Packet ไปยัง 192.168.20.1 ส่วนชื่อ Domain จะถูกส่งไปให้ DNS 192.168.20.10 แปลงเป็น IP ก่อน
+
+IP Conflict คืออะไรและแก้อย่างไร
+
+IP Conflict เกิดเมื่อ Interface มากกว่าหนึ่งตัวใช้ IPv4 Address เดียวกันใน Broadcast Domain เดียว อาการอาจเป็นการเชื่อมต่อหลุดสลับกัน เข้า Gateway ไม่ได้ หรือระบบแจ้ง Duplicate IP แนวทางแก้คือถอดเครื่องหนึ่งออกจากเครือข่าย ตรวจ DHCP Lease และ Reservation ตรวจอุปกรณ์ที่ตั้ง Static แล้วเปลี่ยนให้ไม่ทับกัน จากนั้นล้าง ARP Cacheหรือรอให้ข้อมูลเก่าหมดอายุ
+
+ขั้นตอน Troubleshooting IP แบบเป็นลำดับ
+
+1. ตรวจว่า Interface อยู่สถานะ Up และสายหรือ Wi-Fi เชื่อมต่อแล้ว
+2. ตรวจ IP Address และ Prefix ว่าอยู่ใน Subnet ที่ถูกต้อง
+3. ตรวจว่า Default Gateway อยู่ใน Subnet เดียวกับ Client
+4. ทดสอบ Loopback ด้วย `ping 127.0.0.1`
+5. Ping IP ของตนเองและ Gateway เพื่อแยกปัญหาภายในเครื่องกับ LAN
+6. Ping Public IP เพื่อทดสอบ Routing โดยไม่พึ่ง DNS
+7. ทดสอบชื่อ Domain หาก Ping IP ได้แต่ชื่อไม่ได้ให้ตรวจ DNS
+8. ตรวจ Routing Table และ Firewall หากมีหลาย Interface หรือ VPN
+
+สรุปคำสำคัญและคำสั่งสำคัญ
+
+- IPv4 มี 32 บิต ส่วน IPv6 มี 128 บิต
+- Prefix และ Subnet Mask ใช้แบ่ง Network Portion กับ Host Portion
+- Private IP ใช้ภายในและมักออก Internet ผ่าน NAT
+- Loopback ใช้ทดสอบระบบภายในเครื่อง ส่วน Link-local ใช้ได้ใน Link เดียว
+- `ipconfig /all` และ `Get-NetIPConfiguration` ใช้ตรวจค่า Windows
+- `ip a` ใช้ดู Address และ `ip route` ใช้ดู Gateway บน Linux
+- เมื่อมีปัญหาให้ตรวจ Link, Address, Prefix, Gateway, Route และ DNS ตามลำดับ
+
+แหล่งศึกษา: IETF RFC 1918, Microsoft TCP/IP documentation และ Ubuntu Server networking documentation

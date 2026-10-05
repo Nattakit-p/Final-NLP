@@ -1,0 +1,106 @@
+Domain Name System (DNS)
+
+DNS คือระบบแปลงชื่อที่มนุษย์อ่านง่าย เช่น www.example.com ให้เป็น IP Address ที่เครื่องใช้สื่อสาร และสามารถแปลง IP กลับเป็นชื่อได้ DNS เป็นระบบแบบลำดับชั้นและกระจายศูนย์ ส่วนบนสุดคือ Root ตามด้วย Top-level domain เช่น .com หรือ .th แล้วจึงเป็น Domain และ Subdomain
+
+กระบวนการค้นหาชื่อเริ่มจากโปรแกรมถาม Stub Resolver ในระบบปฏิบัติการ Resolver ตรวจ Cache และไฟล์ hosts ก่อน หากไม่พบจะถาม Recursive DNS Server ซึ่งค้นคำตอบจาก Root, TLD และ Authoritative DNS Server ตามลำดับ แล้วเก็บคำตอบไว้ใน Cache ตามค่า TTL การ Cache ช่วยลดเวลาและลดจำนวนคำถาม แต่หลังแก้ Record อาจต้องรอ TTL เดิมหมดก่อนผู้ใช้ทุกแห่งจะเห็นค่าใหม่
+
+Resource Record ที่ใช้บ่อย ได้แก่ A จับคู่ชื่อกับ IPv4, AAAA จับคู่กับ IPv6, CNAME กำหนดชื่อแทน, MX ระบุ Mail Server, NS ระบุ Name Server, TXT เก็บข้อความที่มักใช้ตรวจสอบ Domain และนโยบายอีเมล, PTR ใช้ Reverse Lookup จาก IP ไปชื่อ และ SOA เก็บข้อมูลหลักของ Zone เช่น Serial Number และค่าการ Refresh
+
+Forward Lookup Zone ใช้แปลงชื่อเป็น IP ส่วน Reverse Lookup Zone ใช้ PTR แปลง IP เป็นชื่อ Authoritative Server มีข้อมูลต้นฉบับของ Zone ส่วน Recursive Resolver ทำหน้าที่ค้นคำตอบแทน Client DNS Forwarder ส่งคำถามที่ตนตอบไม่ได้ไปยัง DNS Server ที่กำหนด Conditional Forwarder ส่งเฉพาะ Domain ที่ตรงเงื่อนไขไปยังปลายทางเฉพาะ
+
+บน Windows Server สามารถติดตั้ง DNS Server Role และสร้าง Primary Zone ได้ Zone ที่ผสานกับ Active Directory สามารถจัดเก็บข้อมูลใน AD DS และทำ Replication ตามขอบเขตที่กำหนด Dynamic Update ช่วยให้ Client หรือ DHCP ลงทะเบียน Record ได้ ผู้ดูแลควรกำหนดสิทธิ์ Secure Dynamic Update เมื่อใช้ AD-integrated Zone
+
+DNS ใช้ UDP Port 53 เป็นหลักสำหรับคำถามทั่วไป และใช้ TCP Port 53 เมื่อคำตอบมีขนาดใหญ่ การโอน Zone และบางกรณีที่ต้องส่งข้อมูลเกินข้อจำกัด UDP ก็ใช้ TCP การเปิด Firewall จึงต้องพิจารณาทั้งสอง Protocol ตามบทบาทจริง
+
+คำสั่ง nslookup example.com ใช้ตรวจ Record ได้ทั้ง Windows และ Linux บน Linux นิยมใช้ dig example.com และ dig -x 192.0.2.10 สำหรับ Reverse Lookup คำสั่ง ipconfig /flushdns ล้าง DNS Client Cache บน Windows คำสั่ง Resolve-DnsName แสดงรายละเอียดผ่าน PowerShell
+
+แนวทางแก้ปัญหา: ตรวจ DNS Server ที่ Client ได้รับ ลองค้น Fully Qualified Domain Name ตรวจว่า Record มีอยู่และถูก Zone ตรวจ Delegation, Forwarder และ Firewall หากค้นชื่อไม่ได้แต่ ping IP ได้ แสดงว่าเส้นทาง IP อาจปกติและควรตรวจ DNS เพิ่ม การได้คำตอบเก่ามักเกี่ยวกับ Cache หรือ TTL การแก้ด้วยการล้าง Cache ควรทำหลังตรวจว่าต้นทางมี Record ใหม่ถูกต้องแล้ว
+
+ตัวอย่าง DNS Resolution แบบเป็นลำดับ
+
+เมื่อผู้ใช้เปิด `www.example.com` โปรแกรมจะถาม DNS Client Resolver ของระบบก่อน Resolver ตรวจไฟล์ hosts และ DNS Cache หากไม่พบจะส่งคำถามไปยัง Recursive DNS Server ที่ตั้งไว้ Recursive Server อาจมี Cache อยู่แล้ว ถ้าไม่มีจะเริ่มถาม Root Server เพื่อหา Server ของ `.com` จากนั้นถาม TLD Server เพื่อหา Authoritative Server ของ `example.com` และสุดท้ายถาม Authoritative Server เพื่อรับ A หรือ AAAA Record แล้วส่งคำตอบกลับ Client
+
+คำตอบแต่ละ Record มี TTL เป็นวินาที Resolver สามารถเก็บไว้จน TTL หมด หากเปลี่ยน IP เว็บไซต์แต่ผู้ใช้บางคนยังได้ IP เก่า ให้ตรวจ TTL และ Cache ก่อน ไม่ควรแก้ด้วยการ Restart ทุก Server ทันที
+
+ตัวอย่าง Resource Record
+
+- `www.example.com. A 192.0.2.20` ระบุ IPv4 ของเว็บไซต์
+- `www.example.com. AAAA 2001:db8::20` ระบุ IPv6 ของเว็บไซต์
+- `portal.example.com. CNAME www.example.com.` ทำให้ portal เป็นชื่อแทนของ www
+- `example.com. MX 10 mail.example.com.` ระบุ Mail Server และค่า Preference
+- `example.com. NS ns1.example.com.` ระบุ Authoritative Name Server
+- PTR ใน Reverse Zone ใช้แปลง Address เช่น 192.0.2.20 กลับเป็นชื่อ
+
+การตั้งค่า DNS บน Windows Server โดยสรุป
+
+1. ติดตั้ง DNS Server Role จาก Server Manager หรือ PowerShell
+2. เปิด DNS Manager แล้วสร้าง Forward Lookup Zone ตามชื่อ Domain
+3. เลือกชนิด Zone และขอบเขต Replication หากเป็น AD-integrated
+4. สร้าง A หรือ AAAA Record สำหรับ Host ที่ต้องการ
+5. สร้าง Reverse Lookup Zone และ PTR เมื่อระบบต้องใช้ Reverse Resolution
+6. กำหนด Forwarder สำหรับชื่อที่ Server ไม่มีข้อมูล
+7. ทดสอบจาก Client และตรวจ Event Log ของ DNS Server
+
+คำสั่งตรวจสอบ DNS บน Windows
+
+ค้น A/AAAA Record ตามค่าปริยาย:
+
+nslookup www.example.com
+
+ระบุ DNS Server ที่ต้องการถามโดยตรง:
+
+nslookup www.example.com 192.168.10.10
+
+ตรวจ Record แบบละเอียดผ่าน PowerShell:
+
+Resolve-DnsName www.example.com
+
+ล้าง DNS Client Cache:
+
+ipconfig /flushdns
+
+ดู Cache ที่ Windows เก็บไว้:
+
+ipconfig /displaydns
+
+คำสั่งตรวจสอบ DNS บน Linux
+
+ดูคำตอบพร้อม TTL และ Name Server ที่ตอบ:
+
+dig www.example.com
+
+ถาม Record ชนิด MX:
+
+dig example.com MX
+
+ทำ Reverse Lookup:
+
+dig -x 192.0.2.20
+
+ดู DNS ที่กำหนดให้แต่ละ Interface:
+
+resolvectl status
+
+กรณี Ping IP ได้แต่เปิดเว็บไซต์ด้วยชื่อไม่ได้
+
+อาการนี้บอกว่า IP Connectivity และ Routing อาจทำงาน แต่ Name Resolution มีปัญหา ให้ตรวจ DNS Address ที่ Client ได้รับ ลอง `nslookup` หรือ `dig` ตรวจว่า Server ตอบหรือไม่ ตรวจ UDP/TCP Port 53, ตรวจว่า Zone และ Record มีอยู่ และลองถาม DNS Server โดยระบุ Address โดยตรง หากคำตอบถูกจาก Server แต่ Client ยังใช้ค่าเก่าให้ล้าง Cache
+
+ปัญหา DNS ที่พบบ่อย
+
+- พิมพ์ชื่อ Record ผิดหรือสร้างใน Zone ผิด ทำให้ได้ NXDOMAIN
+- CNAME ชี้เป็นวงวน ทำให้ Resolver หาคำตอบสุดท้ายไม่ได้
+- Forwarder ติดต่อไม่ได้ ทำให้ชื่อภายนอก Timeout
+- Firewall อนุญาต UDP 53 แต่บล็อก TCP 53 ทำให้คำตอบขนาดใหญ่หรือ Zone Transfer ล้มเหลว
+- TTL สูงเกินไปก่อนเปลี่ยนระบบ ทำให้ผู้ใช้เห็นค่าเก่านาน
+- Client ใน Active Directory ใช้ Public DNS แทน DNS ภายใน จึงหา Domain Controller ไม่พบ
+
+สรุปคำสั่งสำคัญ
+
+- `nslookup name` ตรวจการแปลงชื่อแบบพื้นฐาน
+- `Resolve-DnsName name` ตรวจ DNS ด้วย PowerShell
+- `dig name` แสดงคำตอบและรายละเอียด DNS บน Linux
+- `dig -x IP` ทำ Reverse Lookup
+- `ipconfig /flushdns` ล้าง Cache ของ Windows Client
+- `resolvectl status` ดู DNS Configuration บน Ubuntu
+
+แหล่งศึกษา: Microsoft Learn, DNS in Windows Server และ IETF DNS standards

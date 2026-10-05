@@ -1,0 +1,358 @@
+Firewall และความปลอดภัยเครือข่าย
+
+Firewall คือระบบที่ใช้ควบคุม Traffic ที่ผ่านเข้าและออกจากเครื่องหรือเครือข่าย โดยพิจารณาตามกฎที่ผู้ดูแลกำหนด เช่น Source IP, Destination IP, Protocol, Port, Interface และสถานะของ Connection จุดประสงค์หลักของ Firewall คือจำกัดการเข้าถึง Service ที่ไม่จำเป็น ลดพื้นที่โจมตี และอนุญาตเฉพาะ Traffic ที่ต้องใช้จริง
+
+แนวคิดสำคัญในการตั้งค่า Firewall คือ Default Deny หรือการปฏิเสธ Traffic ที่ไม่ได้รับอนุญาตอย่างชัดเจน แนวทางนี้เหมาะกับ Server ที่ต้องการควบคุมบริการอย่างเข้มงวด เพราะช่วยลดความเสี่ยงจาก Port หรือ Service ที่ไม่จำเป็น อย่างไรก็ตาม ก่อนเปิดใช้งาน Default Deny ต้องตรวจสอบก่อนว่าได้อนุญาตช่องทางบริหาร เช่น SSH หรือ Remote Desktop รวมถึง Service ที่ระบบต้องใช้งานจริง ไม่เช่นนั้นผู้ดูแลอาจล็อกตนเองออกจาก Server ได้
+
+Stateful Firewall เป็น Firewall ที่ติดตามสถานะของ Connection เช่น NEW, ESTABLISHED และ RELATED เมื่อเครื่องภายในเริ่มการเชื่อมต่อออกไป Firewall สามารถอนุญาต Packet ตอบกลับที่เกี่ยวข้องกับ Session เดิมได้โดยไม่ต้องเปิด Traffic ทุกทิศทาง ทำให้เขียน Rule ได้ง่ายและปลอดภัยกว่าในหลายสถานการณ์
+
+Stateless Firewall พิจารณา Packet แต่ละตัวแบบแยกจากกันโดยไม่ติดตามสถานะของ Connection ดังนั้นผู้ดูแลต้องกำหนด Rule ให้ครอบคลุมทั้ง Traffic ไปและกลับอย่างชัดเจน หาก Rule ไม่ครบอาจทำให้การสื่อสารบางส่วนไม่ทำงาน
+
+ลำดับของ Rule มีความสำคัญใน Firewall หลายระบบ โดยทั่วไปควรวาง Rule ที่เฉพาะเจาะจงไว้ก่อน Rule ที่กว้างกว่า เช่น อนุญาตเฉพาะ IP ของผู้ดูแลให้ SSH ก่อน Rule ที่ปฏิเสธ Traffic จากเครือข่ายอื่น การเขียน Rule ควรมีเอกสารกำกับว่ากฎแต่ละข้อมีไว้เพื่ออะไร เพื่อลดความสับสนในอนาคต
+
+Port ที่พบบ่อยในระบบเครือข่าย ได้แก่:
+SSH ใช้ TCP Port 22
+DNS ใช้ UDP และ TCP Port 53
+HTTP ใช้ TCP Port 80
+HTTPS ใช้ TCP Port 443
+Remote Desktop ใช้ TCP และ UDP Port 3389 ในหลายกรณี
+
+การเปิด Port ใน Firewall หมายถึงการอนุญาตให้ Traffic ผ่านเข้าถึง Port นั้น แต่ Service ต้องทำงานและ Listen อยู่จริงจึงจะใช้งานได้ ตัวอย่างเช่น การเปิด TCP Port 80 จะไม่มีประโยชน์หากไม่มี Web Server เช่น IIS, Apache หรือ Nginx กำลัง Listen อยู่
+
+ก่อนแก้ Firewall ควรตรวจสอบ Service และ Port ก่อน เช่น บน Linux สามารถใช้คำสั่ง:
+
+ss -tulpen
+
+คำสั่งนี้ใช้ตรวจสอบ TCP และ UDP Socket รวมถึง Port ที่ Service กำลัง Listen
+
+ถ้า Service ทำงานแต่ Client ยังเชื่อมต่อไม่ได้ ควรตรวจสอบ Firewall, Routing, Interface Binding และ Network Path เพิ่มเติม
+
+UFW หรือ Uncomplicated Firewall เป็นเครื่องมือสำหรับจัดการ Firewall บน Ubuntu ที่ออกแบบให้ใช้งานง่าย โดยทำงานเป็น Frontend สำหรับระบบ Firewall ของ Linux
+
+คำสั่งตรวจสถานะ UFW:
+
+sudo ufw status
+
+ใช้ดูว่า UFW เปิดหรือปิด และดู Rule พื้นฐาน
+
+คำสั่ง:
+
+sudo ufw status verbose
+
+ใช้ดูสถานะ Firewall พร้อม Default Policy และรายละเอียด Rule มากขึ้น
+
+คำสั่งเปิดใช้งาน UFW:
+
+sudo ufw enable
+
+คำสั่งปิด UFW:
+
+sudo ufw disable
+
+ไม่ควรปิด Firewall เป็นวิธีแก้ปัญหาถาวร หากต้องการทดสอบควรทำในช่วงเวลาสั้น ๆ และกลับมาเปิดใช้งานพร้อม Rule ที่เหมาะสม
+
+การอนุญาต SSH สามารถใช้:
+
+sudo ufw allow OpenSSH
+
+หรือ
+
+sudo ufw allow 22/tcp
+
+ก่อนเปิด UFW บน Ubuntu Server ที่บริหารผ่าน SSH ควรอนุญาต SSH ก่อนเสมอ เพราะหากเปิด Firewall ก่อนโดยไม่มี Rule อนุญาต SSH การเชื่อมต่อระยะไกลอาจถูกตัดและไม่สามารถกลับเข้า Server ได้
+
+การอนุญาต HTTP:
+
+sudo ufw allow 80/tcp
+
+การอนุญาต HTTPS:
+
+sudo ufw allow 443/tcp
+
+สามารถอนุญาต Profile ของ Application ได้ หาก Application ได้ลงทะเบียน Profile ไว้กับ UFW เช่น:
+
+sudo ufw app list
+
+ใช้ดู Application Profile ที่มีอยู่
+
+ตัวอย่างเช่น หากมี OpenSSH อยู่ในรายการ สามารถใช้:
+
+sudo ufw allow OpenSSH
+
+การปฏิเสธ Port ตัวอย่าง:
+
+sudo ufw deny 23/tcp
+
+ใช้ปฏิเสธ TCP Port 23 ซึ่งเกี่ยวข้องกับ Telnet
+
+การลบ Rule สามารถใช้:
+
+sudo ufw status numbered
+
+เพื่อดูหมายเลข Rule จากนั้นใช้:
+
+sudo ufw delete 3
+
+โดยเลข 3 เป็นตัวอย่างหมายเลข Rule ที่ต้องการลบ
+
+อีกวิธีคือระบุ Rule โดยตรง เช่น:
+
+sudo ufw delete allow 80/tcp
+
+การกำหนด Default Policy สามารถใช้:
+
+sudo ufw default deny incoming
+
+หมายถึงปฏิเสธ Incoming Traffic โดย Default
+
+และ:
+
+sudo ufw default allow outgoing
+
+หมายถึงอนุญาต Outgoing Traffic โดย Default
+
+แนวทางนี้เหมาะกับ Server ทั่วไปที่ต้องการรับเฉพาะ Connection สำหรับ Service ที่อนุญาตไว้
+
+หากต้องการจำกัด SSH ให้เข้าจากบาง Network เท่านั้น สามารถกำหนด Source ได้ ตัวอย่าง:
+
+sudo ufw allow from 192.168.10.0/24 to any port 22 proto tcp
+
+Rule นี้อนุญาต SSH จาก Network 192.168.10.0/24 เท่านั้น ช่วยลดความเสี่ยงจากการเปิด SSH ให้ทุก Network
+
+Windows Defender Firewall เป็น Firewall ที่มากับ Windows และ Windows Server โดยรองรับ Profile ได้แก่ Domain, Private และ Public แต่ละ Profile สามารถมี Rule ต่างกันตามประเภทเครือข่ายที่เครื่องเชื่อมต่ออยู่
+
+Domain Profile มักใช้เมื่อเครื่องเชื่อมต่อกับ Domain Network
+Private Profile ใช้กับเครือข่ายที่เชื่อถือได้ เช่น LAN ภายใน
+Public Profile ใช้กับเครือข่ายที่ไม่เชื่อถือ เช่น Public Wi-Fi
+
+บน Windows สามารถใช้ Windows Defender Firewall with Advanced Security เพื่อจัดการ Rule แบบกราฟิก โดยสามารถสร้าง Inbound Rule และ Outbound Rule ตาม Program, Port, Protocol, IP Address และ Profile
+
+PowerShell สามารถใช้คำสั่ง:
+
+Get-NetFirewallRule
+
+เพื่อดู Firewall Rule ที่มีอยู่
+
+สามารถตรวจเฉพาะ Rule ที่เปิดใช้งานได้โดยใช้:
+
+Get-NetFirewallRule | Where-Object Enabled -eq "True"
+
+แนวทางที่ดีคือไม่ควรปิด Windows Firewall ทุก Profile เพื่อแก้ปัญหาระยะยาว แต่ควรตรวจว่า Service ต้องใช้ Port ใด และสร้าง Rule ที่อนุญาตเฉพาะ Port, Program หรือ Remote Address ที่จำเป็น
+
+Inbound Traffic คือ Traffic ที่เข้ามายังเครื่อง เช่น Client เข้ามาใช้งาน Web Server
+
+Outbound Traffic คือ Traffic ที่ออกจากเครื่อง เช่น Server ติดต่อ DNS Server หรือดาวน์โหลด Update
+
+Firewall Policy ควรจำกัด Incoming Traffic มากกว่า Outgoing Traffic ในหลายกรณี แต่ระบบที่ต้องการความปลอดภัยสูงอาจควบคุม Outbound Traffic ด้วยเพื่อป้องกัน Malware หรือ Application ที่ไม่ได้รับอนุญาตติดต่อออกไปภายนอก
+
+Network Segmentation คือการแบ่งเครือข่ายออกเป็นหลาย Segment หรือ Zone เช่น User Network, Server Network, Management Network และ Guest Network การแบ่ง Segment ช่วยจำกัดการกระจายของ Traffic และลดผลกระทบเมื่อระบบส่วนหนึ่งถูกโจมตี
+
+ตัวอย่างเช่น Guest Wi-Fi ไม่ควรเข้าถึง Server Network โดยตรง ส่วน Management Network ควรอนุญาตเฉพาะผู้ดูแลระบบที่จำเป็น
+
+VLAN สามารถใช้ช่วยแบ่ง Network ในระดับ Layer 2 แต่หากต้องการควบคุม Traffic ระหว่าง VLAN ต้องใช้ Router, Layer 3 Switch หรือ Firewall ร่วมด้วย
+
+Defense in Depth คือแนวคิดที่ไม่พึ่งมาตรการป้องกันเพียงอย่างเดียว แต่ใช้หลายชั้นร่วมกัน เช่น:
+- Patch Management
+- Firewall
+- MFA
+- Least Privilege
+- Endpoint Protection
+- Encryption
+- Backup
+- Logging
+- Monitoring
+- Network Segmentation
+
+หากมาตรการหนึ่งล้มเหลว มาตรการอื่นยังช่วยลดผลกระทบได้
+
+Least Privilege คือการให้สิทธิ์แก่ผู้ใช้หรือ Service เท่าที่จำเป็นต่อการทำงานเท่านั้น ตัวอย่างเช่น ผู้ใช้งานทั่วไปไม่ควรได้รับสิทธิ์ Administrator หากไม่จำเป็น และ Application ไม่ควรรันด้วยสิทธิ์สูงสุดโดยไม่มีเหตุผล
+
+Hardening คือการปรับระบบให้มีพื้นที่โจมตีน้อยลง ตัวอย่างแนวทาง Hardening Server ได้แก่:
+- ปิด Service ที่ไม่ใช้งาน
+- ปิด Port ที่ไม่จำเป็น
+- ลบบัญชีที่ไม่ใช้งาน
+- อัปเดต Security Patch
+- ใช้ SSH Key แทน Password เมื่อเหมาะสม
+- ใช้ MFA เมื่อระบบรองรับ
+- จำกัด Remote Administration
+- ใช้ Least Privilege
+- Backup ข้อมูลอย่างสม่ำเสมอ
+- ทดสอบการ Restore
+- ตรวจ Log และ Alert
+- ตรวจ Certificate และ Secret
+- แยก Management Traffic ออกจาก User Traffic
+
+Log มีบทบาทสำคัญในการตรวจสอบเหตุการณ์ความปลอดภัย Firewall สามารถบันทึกเหตุการณ์ Allow หรือ Deny เพื่อช่วยตรวจสอบว่ามี Traffic ใดถูกบล็อกหรือมีความพยายามเข้าถึงระบบผิดปกติ
+
+บน Ubuntu สามารถเปิด Logging ของ UFW ได้ด้วย:
+
+sudo ufw logging on
+
+และสามารถกำหนดระดับ Logging ตามความเหมาะสม อย่างไรก็ตาม การเปิด Log มากเกินไปอาจใช้พื้นที่ Disk มาก จึงควรกำหนดระดับ Log ให้สอดคล้องกับความต้องการ
+
+เวลาของระบบควรถูกตั้งค่าให้ตรงกันผ่าน NTP เพราะหากเวลาแต่ละเครื่องไม่ตรง การวิเคราะห์ Log จากหลายระบบจะทำได้ยาก
+
+API Key, Password, Token และ Secret ไม่ควรถูกเก็บใน Source Code หรือ Git Repository เพราะหาก Repository ถูกเปิดเผย Secret อาจถูกนำไปใช้งานโดยไม่ได้รับอนุญาต
+
+ตัวอย่างเช่น ในโปรเจกต์ Streamlit ไม่ควรเขียน:
+
+GROQ_API_KEY = "ค่าจริง"
+
+ไว้ใน app.py
+
+ควรเก็บ Secret ไว้ใน Streamlit Secrets, Environment Variable หรือ Secret Manager ตามระบบที่ใช้งาน
+
+ไฟล์ที่มี Secret เช่น:
+
+.streamlit/secrets.toml
+
+ควรเพิ่มใน .gitignore เพื่อป้องกันการ Push ขึ้น GitHub
+
+หาก Secret ถูก Upload ขึ้น GitHub โดยไม่ตั้งใจ ควรถือว่า Secret นั้นไม่ปลอดภัยแล้ว และควรยกเลิกหรือสร้าง Key ใหม่ทันที การลบออกจาก Commit ล่าสุดเพียงอย่างเดียวอาจไม่เพียงพอ เพราะข้อมูลอาจยังอยู่ใน Git History
+
+การตรวจสอบปัญหา Firewall ควรทำเป็นลำดับ
+
+1. ตรวจสอบว่า Service ทำงานอยู่
+2. ตรวจสอบว่า Service Listen Port ที่ต้องการ
+3. ตรวจสอบ IP Address ของ Server
+4. ตรวจสอบ Routing
+5. ตรวจสอบ Firewall Status
+6. ตรวจ Rule ที่เกี่ยวข้อง
+7. ทดสอบ Connection จาก Client
+8. ตรวจ Log
+9. ตรวจว่า Service Bind กับ Interface ที่ถูกต้องหรือไม่
+10. ตรวจ Firewall อื่นระหว่าง Client และ Server
+
+ตัวอย่างสถานการณ์:
+Server มี IIS ทำงานบน TCP Port 80 แต่ Client เข้าเว็บไซต์ไม่ได้
+
+ควรตรวจ:
+1. IIS Service ทำงานหรือไม่
+2. Server Listen TCP Port 80 หรือไม่
+3. Windows Firewall อนุญาต Port 80 หรือไม่
+4. Client Ping Server ได้หรือไม่
+5. Routing ถูกต้องหรือไม่
+6. URL หรือ IP Address ที่ใช้ถูกต้องหรือไม่
+
+ตัวอย่างสถานการณ์:
+Ubuntu Server เปิด SSH แต่ Client เชื่อมต่อไม่ได้
+
+ตรวจสอบ Service:
+
+sudo systemctl status ssh
+
+ตรวจ Port:
+
+ss -tulpen
+
+ตรวจ Firewall:
+
+sudo ufw status verbose
+
+ตรวจว่ามี Rule เช่น:
+
+22/tcp ALLOW
+
+จากนั้นตรวจ Routing และ IP Address ของ Client กับ Server
+
+ตัวอย่างสถานการณ์:
+หลังใช้ sudo ufw enable แล้ว SSH หลุด
+
+สาเหตุที่เป็นไปได้คือยังไม่ได้อนุญาต SSH ก่อนเปิด Firewall หากยังมี Console Access ให้เข้าเครื่องจาก Console แล้วเพิ่ม Rule:
+
+sudo ufw allow OpenSSH
+
+จากนั้นตรวจด้วย:
+
+sudo ufw status verbose
+
+สรุปคำสั่ง UFW ที่สำคัญ
+
+sudo ufw status
+ใช้ตรวจสถานะ UFW
+
+sudo ufw status verbose
+ใช้ดูสถานะ Default Policy และ Rule แบบละเอียด
+
+sudo ufw status numbered
+ใช้แสดง Rule พร้อมหมายเลขสำหรับลบ
+
+sudo ufw enable
+เปิดใช้งาน UFW
+
+sudo ufw disable
+ปิดใช้งาน UFW
+
+sudo ufw allow OpenSSH
+อนุญาต SSH
+
+sudo ufw allow 22/tcp
+อนุญาต TCP Port 22
+
+sudo ufw allow 80/tcp
+อนุญาต HTTP
+
+sudo ufw allow 443/tcp
+อนุญาต HTTPS
+
+sudo ufw deny 23/tcp
+ปฏิเสธ Telnet
+
+sudo ufw delete <หมายเลข>
+ลบ Rule ตามหมายเลข
+
+sudo ufw app list
+ดู Application Profile
+
+sudo ufw default deny incoming
+ตั้งค่า Default Incoming เป็น Deny
+
+sudo ufw default allow outgoing
+ตั้งค่า Default Outgoing เป็น Allow
+
+sudo ufw logging on
+เปิด Firewall Logging
+
+สรุปแนวคิดสำคัญ
+
+Firewall
+ระบบควบคุม Traffic ตาม Rule ที่กำหนด
+
+Stateful Firewall
+Firewall ที่ติดตามสถานะ Connection
+
+Stateless Firewall
+Firewall ที่พิจารณา Packet แต่ละตัวแยกกัน
+
+Default Deny
+ปฏิเสธ Traffic ที่ไม่ได้รับอนุญาตโดยชัดเจน
+
+Inbound
+Traffic ที่เข้ามายังเครื่องหรือ Network
+
+Outbound
+Traffic ที่ออกจากเครื่องหรือ Network
+
+Port
+หมายเลขที่ใช้ระบุ Service หรือ Application ในการสื่อสารด้วย TCP หรือ UDP
+
+Network Segmentation
+การแบ่ง Network เป็นหลาย Zone หรือ VLAN เพื่อควบคุมการเข้าถึง
+
+Least Privilege
+การให้สิทธิ์เท่าที่จำเป็น
+
+Defense in Depth
+การใช้มาตรการความปลอดภัยหลายชั้นร่วมกัน
+
+Hardening
+การลดพื้นที่โจมตีของระบบโดยปิดสิ่งที่ไม่จำเป็นและเพิ่มการป้องกัน
+
+Logging
+การบันทึกเหตุการณ์เพื่อใช้ตรวจสอบและวิเคราะห์ปัญหาหรือเหตุการณ์ด้านความปลอดภัย
+
+แหล่งศึกษา:
+Ubuntu Server Firewall Documentation
+Microsoft Windows Defender Firewall Documentation
+Microsoft Windows Server Security Documentation
+แนวทางความปลอดภัยจากผู้ผลิตระบบปฏิบัติการและอุปกรณ์เครือข่าย
